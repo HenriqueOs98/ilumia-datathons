@@ -1,0 +1,141 @@
+# Timestream to InfluxDB Migration Configuration
+# This file defines the migration jobs and settings for the data migration process
+
+migration_jobs:
+  # Generation Data Migration
+  - job_name: "Generation Data Migration"
+    source_database: "ons_energy_data"
+    source_table: "generation_data"
+    target_bucket: "generation_data"
+    start_time: "2023-01-01T00:00:00Z"
+    end_time: "2024-12-31T23:59:59Z"
+    batch_size: 10000
+    validation_enabled: true
+    rollback_enabled: true
+    description: "Migrate power generation metrics including power output, capacity factors, and availability data"
+
+  # Consumption Data Migration  
+  - job_name: "Consumption Data Migration"
+    source_database: "ons_energy_data"
+    source_table: "consumption_data"
+    target_bucket: "consumption_data"
+    start_time: "2023-01-01T00:00:00Z"
+    end_time: "2024-12-31T23:59:59Z"
+    batch_size: 10000
+    validation_enabled: true
+    rollback_enabled: true
+    description: "Migrate energy consumption data including demand patterns and load factors"
+
+  # Transmission Data Migration
+  - job_name: "Transmission Data Migration"
+    source_database: "ons_energy_data"
+    source_table: "transmission_data"
+    target_bucket: "transmission_data"
+    start_time: "2023-01-01T00:00:00Z"
+    end_time: "2024-12-31T23:59:59Z"
+    batch_size: 10000
+    validation_enabled: true
+    rollback_enabled: true
+    description: "Migrate grid transmission statistics including power flows and losses"
+
+migration_settings:
+  # Execution settings
+  parallel_jobs: 2  # Number of migration jobs to run in parallel
+  progress_monitoring_interval: 60  # Seconds between progress checks
+  max_retry_attempts: 3
+  retry_delay_seconds: 300
+
+  # Infrastructure settings (will be populated from Terraform outputs or environment)
+  s3_export_bucket: ""  # S3 bucket for temporary data export
+  notification_topic_arn: ""  # SNS topic for migration notifications
+  
+  # Validation settings
+  sample_validation_size: 1000  # Number of records to sample for validation
+  checksum_validation_enabled: true
+  schema_validation_enabled: true
+  
+  # Performance settings
+  export_batch_size: 10000  # Records per export batch
+  load_batch_size: 5000     # Records per InfluxDB load batch
+  connection_pool_size: 10   # InfluxDB connection pool size
+  
+  # Monitoring and alerting
+  enable_detailed_logging: true
+  log_retention_days: 30
+  alert_on_validation_warnings: true
+  alert_on_performance_degradation: true
+
+# Data validation rules
+validation_rules:
+  # Record count validation
+  record_count_tolerance: 0.001  # 0.1% tolerance for record count differences
+  
+  # Time range validation
+  time_range_tolerance_seconds: 60  # Allow 1 minute tolerance in time ranges
+  
+  # Sample data validation
+  sample_accuracy_threshold: 0.95  # 95% minimum accuracy for sample validation
+  
+  # Performance validation
+  max_export_time_hours: 4  # Maximum time allowed for data export
+  max_load_time_hours: 6    # Maximum time allowed for data loading
+  max_validation_time_hours: 2  # Maximum time allowed for validation
+
+# Rollback configuration
+rollback_settings:
+  auto_rollback_on_validation_failure: true
+  auto_rollback_on_load_failure: true
+  preserve_export_data_on_rollback: true  # Keep exported data for debugging
+  rollback_timeout_hours: 2
+
+# Notification configuration
+notifications:
+  # Email notifications
+  email_notifications:
+    enabled: true
+    recipients:
+      - "data-team@ons.gov.br"
+      - "infrastructure-team@ons.gov.br"
+    events:
+      - migration_started
+      - migration_completed
+      - migration_failed
+      - validation_warnings
+      - rollback_initiated
+
+  # Slack notifications (optional)
+  slack_notifications:
+    enabled: false
+    webhook_url: ""
+    channel: "#data-migration"
+    events:
+      - migration_completed
+      - migration_failed
+
+# Environment-specific overrides
+environments:
+  development:
+    migration_settings:
+      parallel_jobs: 1
+      sample_validation_size: 100
+    validation_rules:
+      record_count_tolerance: 0.01  # More lenient for dev
+      sample_accuracy_threshold: 0.90
+  
+  staging:
+    migration_settings:
+      parallel_jobs: 2
+      sample_validation_size: 500
+    validation_rules:
+      record_count_tolerance: 0.005
+      sample_accuracy_threshold: 0.95
+  
+  production:
+    migration_settings:
+      parallel_jobs: 3
+      sample_validation_size: 1000
+    validation_rules:
+      record_count_tolerance: 0.001
+      sample_accuracy_threshold: 0.98
+    rollback_settings:
+      auto_rollback_on_validation_failure: false  # Manual approval required in prod

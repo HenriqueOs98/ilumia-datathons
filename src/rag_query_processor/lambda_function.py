@@ -35,7 +35,10 @@ try:
         QueryTranslator,
         QueryLanguage,
         create_query_translator,
-        translate_natural_language_query
+        translate_natural_language_query,
+        determine_backend_for_query,
+        DatabaseBackend,
+        record_performance_metric
     )
     from shared_utils.logging_config import setup_logging
 except ImportError:
@@ -46,6 +49,11 @@ except ImportError:
         QueryLanguage,
         create_query_translator,
         translate_natural_language_query
+    )
+    from traffic_switch import (
+        determine_backend_for_query,
+        DatabaseBackend,
+        record_performance_metric
     )
     from logging_config import setup_logging
 
@@ -189,7 +197,8 @@ class QueryProcessor:
         time_pattern_matches = sum(1 for pattern in time_patterns if re.search(pattern, query_lower))
         
         # Determine if it's time series related
-        return keyword_count >= 2 or time_pattern_matches >= 1
+        # Need either multiple keywords OR strong time patterns
+        return (keyword_count >= 2) or (time_pattern_matches >= 2) or (keyword_count >= 1 and time_pattern_matches >= 1)
     
     def _calculate_timeseries_confidence(self, query: str) -> float:
         """
@@ -237,15 +246,51 @@ class QueryProcessor:
         
         return self.query_translator
     
-    def query_timeseries_data(self, query: str) -> Dict[str, Any]:
+    def query_timeseries_data(self, query: str, user_id: str = None) -> Dict[str, Any]:
         """
-        Query time series data using the time series query processor.
+        Query time series data using traffic switching to determine backend.
         
         Args:
             query: Natural language query
+            user_id: Optional user ID for consistent routing
             
         Returns:
             Time series query results
+        """
+        start_time = time.time()
+        backend_used = None
+        
+        try:
+            # Determine which backend to use based on traffic switching
+            backend = determine_backend_for_query(user_id)
+            backend_used = backend
+            
+            logger.info(f"Using {backend.value} for time series query")
+            
+            if backend == DatabaseBackend.INFLUXDB:
+                return self._query_influxdb_data(query, start_time)
+            else:
+                return self._query_timestream_data(query, start_time)
+                
+        except Exception as e:
+            # Record error metrics
+            if backend_used:
+                processing_time = (time.time() - start_time) * 1000
+                record_performance_metric(backend_used, processing_time, False)
+            
+            logger.error(f"Time series query failed: {e}")
+            return {'success': False, 'error': str(e), 'source': 'error'}
+    
+    def _query_influxdb_data(self, query: str, start_time: float) -> Dict[str, Any]:
+        """
+        Query InfluxDB for time series data.
+        
+        Args:
+            query: Natural language query
+            start_time: Query start time for metrics
+            
+        Returns:
+            InfluxDB query results
         """
         try:
             # Try to use the query translator directly first
@@ -253,6 +298,10 @@ class QueryProcessor:
             if translator:
                 try:
                     translation_result = translator.translate_query(query, QueryLanguage.FLUX)
+                    
+                    # Record successful performance metric
+                    processing_time = (time.time() - start_time) * 1000
+                    record_performance_metric(DatabaseBackend.INFLUXDB, processing_time, True)
                     
                     return {
                         'success': True,
@@ -262,54 +311,115 @@ class QueryProcessor:
                         'parameters': translation_result.get('parameters', {}),
                         'template_description': translation_result.get('template_description', ''),
                         'time_series_data': [],  # Would be populated by actual InfluxDB execution
-                        'source': 'query_translator'
+                        'source': 'influxdb_direct',
+                        'backend_used': 'influxdb'
                     }
                 except Exception as e:
-                    logger.warning(f"Direct query translation failed: {e}")
+                    logger.warning(f"Direct InfluxDB query translation failed: {e}")
             
             # Fallback to Lambda invocation if available
-            try:
-                lambda_client = boto3.client('lambda')
-                
-                payload = {
-                    'body': json.dumps({
-                        'question': query,
-                        'language': 'flux',
-                        'use_cache': True
-                    })
-                }
-                
-                response = lambda_client.invoke(
-                    FunctionName=self.timeseries_lambda_name,
-                    InvocationType='RequestResponse',
-                    Payload=json.dumps(payload)
-                )
-                
-                result = json.loads(response['Payload'].read())
-                
-                if result.get('statusCode') == 200:
-                    body = json.loads(result['body'])
-                    return {
-                        'success': True,
-                        'query_type': body.get('query_metadata', {}).get('query_type', 'unknown'),
-                        'confidence_score': body.get('query_metadata', {}).get('confidence_score', 0),
-                        'influxdb_query': body.get('influxdb_query', ''),
-                        'time_series_data': body.get('time_series_data', []),
-                        'record_count': body.get('record_count', 0),
-                        'processing_time_ms': body.get('processing_time_ms', 0),
-                        'source': 'lambda_invocation'
-                    }
-                else:
-                    logger.error(f"Time series Lambda returned error: {result}")
-                    return {'success': False, 'error': 'Time series query failed', 'source': 'lambda_invocation'}
-                    
-            except Exception as e:
-                logger.warning(f"Lambda invocation failed: {e}")
-                return {'success': False, 'error': str(e), 'source': 'lambda_invocation'}
+            return self._invoke_timeseries_lambda(query, start_time, 'influxdb')
                 
         except Exception as e:
-            logger.error(f"Time series query failed: {e}")
-            return {'success': False, 'error': str(e), 'source': 'error'}
+            processing_time = (time.time() - start_time) * 1000
+            record_performance_metric(DatabaseBackend.INFLUXDB, processing_time, False)
+            raise
+    
+    def _query_timestream_data(self, query: str, start_time: float) -> Dict[str, Any]:
+        """
+        Query Timestream for time series data (legacy fallback).
+        
+        Args:
+            query: Natural language query
+            start_time: Query start time for metrics
+            
+        Returns:
+            Timestream query results
+        """
+        try:
+            # For Timestream, we'll use a simplified approach or fallback
+            logger.info("Timestream queries not fully implemented in RAG processor")
+            
+            # Record performance metric
+            processing_time = (time.time() - start_time) * 1000
+            record_performance_metric(DatabaseBackend.TIMESTREAM, processing_time, True)
+            
+            return {
+                'success': False,
+                'error': 'Timestream queries not supported in RAG processor',
+                'source': 'timestream_fallback',
+                'backend_used': 'timestream'
+            }
+                
+        except Exception as e:
+            processing_time = (time.time() - start_time) * 1000
+            record_performance_metric(DatabaseBackend.TIMESTREAM, processing_time, False)
+            raise
+    
+    def _invoke_timeseries_lambda(self, query: str, start_time: float, backend_hint: str = 'influxdb') -> Dict[str, Any]:
+        """
+        Invoke the time series Lambda function.
+        
+        Args:
+            query: Natural language query
+            start_time: Query start time for metrics
+            backend_hint: Hint about which backend to use
+            
+        Returns:
+            Lambda invocation results
+        """
+        try:
+            lambda_client = boto3.client('lambda')
+            
+            payload = {
+                'body': json.dumps({
+                    'question': query,
+                    'language': 'flux',
+                    'use_cache': True
+                })
+            }
+            
+            response = lambda_client.invoke(
+                FunctionName=self.timeseries_lambda_name,
+                InvocationType='RequestResponse',
+                Payload=json.dumps(payload)
+            )
+            
+            result = json.loads(response['Payload'].read())
+            
+            # Record performance metric
+            processing_time = (time.time() - start_time) * 1000
+            backend = DatabaseBackend.INFLUXDB if backend_hint == 'influxdb' else DatabaseBackend.TIMESTREAM
+            record_performance_metric(backend, processing_time, result.get('statusCode') == 200)
+            
+            if result.get('statusCode') == 200:
+                body = json.loads(result['body'])
+                return {
+                    'success': True,
+                    'query_type': body.get('query_metadata', {}).get('query_type', 'unknown'),
+                    'confidence_score': body.get('query_metadata', {}).get('confidence_score', 0),
+                    'influxdb_query': body.get('influxdb_query', ''),
+                    'time_series_data': body.get('time_series_data', []),
+                    'record_count': body.get('record_count', 0),
+                    'processing_time_ms': body.get('processing_time_ms', 0),
+                    'source': 'lambda_invocation',
+                    'backend_used': backend_hint
+                }
+            else:
+                logger.error(f"Time series Lambda returned error: {result}")
+                return {
+                    'success': False, 
+                    'error': 'Time series query failed', 
+                    'source': 'lambda_invocation',
+                    'backend_used': backend_hint
+                }
+                
+        except Exception as e:
+            logger.warning(f"Lambda invocation failed: {e}")
+            processing_time = (time.time() - start_time) * 1000
+            backend = DatabaseBackend.INFLUXDB if backend_hint == 'influxdb' else DatabaseBackend.TIMESTREAM
+            record_performance_metric(backend, processing_time, False)
+            return {'success': False, 'error': str(e), 'source': 'lambda_invocation'}
         
     def retrieve_context(self, query: str) -> Dict[str, Any]:
         """
@@ -384,7 +494,9 @@ class QueryProcessor:
             timeseries_data = None
             if query_result.get('has_timeseries_context', False):
                 logger.info(f"Detected time series context with confidence {query_result.get('timeseries_confidence', 0)}")
-                timeseries_data = self.query_timeseries_data(query)
+                # Extract user ID from query context if available
+                user_id = query_result.get('user_id')
+                timeseries_data = self.query_timeseries_data(query, user_id)
             
             # Enhance query with time series context if available
             enhanced_query = query

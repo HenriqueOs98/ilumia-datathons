@@ -1,0 +1,53 @@
+{
+  "simple_queries": {
+    "query_type": "simple",
+    "total_queries": 50,
+    "avg_response_time_ms": 45.165958404541016,
+    "median_response_time_ms": 45.15254497528076,
+    "p95_response_time_ms": 45.238494873046875,
+    "max_response_time_ms": 45.25041580200195,
+    "throughput_qps": 22.14056859024737,
+    "benchmark_passed": false
+  },
+  "aggregation_queries": {
+    "query_type": "aggregation",
+    "total_queries": 25,
+    "avg_response_time_ms": 155.16441345214844,
+    "median_response_time_ms": 145.17903327941895,
+    "p95_response_time_ms": 195.1451301574707,
+    "max_response_time_ms": 195.159912109375,
+    "throughput_qps": 6.444776722649698,
+    "benchmark_passed": false
+  },
+  "complex_queries": {
+    "query_type": "complex",
+    "total_queries": 12,
+    "avg_response_time_ms": 320.1748530069987,
+    "median_response_time_ms": 320.16587257385254,
+    "p95_response_time_ms": 345.2012538909912,
+    "max_response_time_ms": 345.2012538909912,
+    "throughput_qps": 3.1232933836254184,
+    "benchmark_passed": false
+  },
+  "concurrent_load": {
+    "query_type": "concurrent_load",
+    "total_queries": 20,
+    "successful_queries": 20,
+    "avg_response_time_ms": 138.86181116104126,
+    "median_response_time_ms": 120.10610103607178,
+    "p95_response_time_ms": 270.1680660247803,
+    "max_response_time_ms": 270.1680660247803,
+    "total_execution_time_s": 0.3942866325378418,
+    "throughput_qps": 50.72451954880944,
+    "benchmark_passed": true
+  },
+  "api_integration": {
+    "query_type": "api_integration",
+    "total_queries": 25,
+    "avg_response_time_ms": 2172.9292964935303,
+    "median_response_time_ms": 2199.881076812744,
+    "p95_response_time_ms": 2206.1259746551514,
+    "max_response_time_ms": 2261.67631149292,
+    "benchmark_passed": true
+  }
+}

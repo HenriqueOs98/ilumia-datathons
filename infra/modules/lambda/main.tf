@@ -252,9 +252,33 @@ resource "aws_iam_role_policy" "influxdb_lambda_cloudwatch_policy" {
         Resource = "*"
         Condition = {
           StringEquals = {
-            "cloudwatch:namespace" = "ONS/InfluxDB"
+            "cloudwatch:namespace" = ["ONS/InfluxDB", "ONS/TrafficSwitching", "ONS/DataLoader"]
           }
         }
+      }
+    ]
+  })
+}
+
+# AppConfig access policy for InfluxDB Lambda
+resource "aws_iam_role_policy" "influxdb_lambda_appconfig_policy" {
+  name = "${var.project_name}-${var.environment}-influxdb-lambda-appconfig-policy"
+  role = aws_iam_role.influxdb_lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "appconfig:StartConfigurationSession",
+          "appconfig:GetConfiguration"
+        ]
+        Resource = [
+          "arn:aws:appconfig:*:*:application/${var.project_name}-${var.environment}-app",
+          "arn:aws:appconfig:*:*:application/${var.project_name}-${var.environment}-app/environment/*",
+          "arn:aws:appconfig:*:*:application/${var.project_name}-${var.environment}-app/configurationprofile/*"
+        ]
       }
     ]
   })
@@ -394,11 +418,14 @@ resource "aws_lambda_function" "rag_query_processor" {
 
   environment {
     variables = {
-      KNOWLEDGE_BASE_ID    = var.knowledge_base_id
-      MODEL_ARN            = var.bedrock_model_arn
-      MAX_QUERY_LENGTH     = "1000"
-      MAX_RESULTS          = "5"
-      MIN_CONFIDENCE_SCORE = "0.7"
+      KNOWLEDGE_BASE_ID           = var.knowledge_base_id
+      MODEL_ARN                   = var.bedrock_model_arn
+      MAX_QUERY_LENGTH            = "1000"
+      MAX_RESULTS                 = "5"
+      MIN_CONFIDENCE_SCORE        = "0.7"
+      APPCONFIG_APPLICATION       = "${var.project_name}-${var.environment}-app"
+      ENVIRONMENT                 = var.environment
+      TIMESERIES_LAMBDA_NAME      = "${var.project_name}-${var.environment}-timeseries-query-processor"
     }
   }
 
@@ -498,9 +525,54 @@ resource "aws_iam_role_policy" "rag_lambda_cloudwatch_policy" {
         Resource = "*"
         Condition = {
           StringEquals = {
-            "cloudwatch:namespace" = "ONS/RAGProcessor"
+            "cloudwatch:namespace" = ["ONS/RAGProcessor", "ONS/TrafficSwitching"]
           }
         }
+      }
+    ]
+  })
+}
+
+# AppConfig access policy for RAG Lambda
+resource "aws_iam_role_policy" "rag_lambda_appconfig_policy" {
+  name = "${var.project_name}-${var.environment}-rag-lambda-appconfig-policy"
+  role = aws_iam_role.rag_lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "appconfig:StartConfigurationSession",
+          "appconfig:GetConfiguration"
+        ]
+        Resource = [
+          "arn:aws:appconfig:*:*:application/${var.project_name}-${var.environment}-app",
+          "arn:aws:appconfig:*:*:application/${var.project_name}-${var.environment}-app/environment/*",
+          "arn:aws:appconfig:*:*:application/${var.project_name}-${var.environment}-app/configurationprofile/*"
+        ]
+      }
+    ]
+  })
+}
+
+# Lambda invoke permission for RAG Lambda to call timeseries processor
+resource "aws_iam_role_policy" "rag_lambda_invoke_policy" {
+  name = "${var.project_name}-${var.environment}-rag-lambda-invoke-policy"
+  role = aws_iam_role.rag_lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:InvokeFunction"
+        ]
+        Resource = [
+          "arn:aws:lambda:*:*:function:${var.project_name}-${var.environment}-timeseries-query-processor"
+        ]
       }
     ]
   })
@@ -623,6 +695,8 @@ resource "aws_lambda_function" "timeseries_query_processor" {
       QUERY_TIMEOUT_SECONDS      = "30"
       ENABLE_QUERY_CACHING       = "true"
       CACHE_TTL_SECONDS          = "300"
+      APPCONFIG_APPLICATION      = "${var.project_name}-${var.environment}-app"
+      ENVIRONMENT                = var.environment
     }
   }
 
@@ -721,9 +795,33 @@ resource "aws_iam_role_policy" "timeseries_lambda_cloudwatch_policy" {
         Resource = "*"
         Condition = {
           StringEquals = {
-            "cloudwatch:namespace" = "ONS/TimeseriesProcessor"
+            "cloudwatch:namespace" = ["ONS/TimeseriesProcessor", "ONS/TrafficSwitching"]
           }
         }
+      }
+    ]
+  })
+}
+
+# AppConfig access policy for Timeseries Lambda
+resource "aws_iam_role_policy" "timeseries_lambda_appconfig_policy" {
+  name = "${var.project_name}-${var.environment}-timeseries-lambda-appconfig-policy"
+  role = aws_iam_role.timeseries_lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "appconfig:StartConfigurationSession",
+          "appconfig:GetConfiguration"
+        ]
+        Resource = [
+          "arn:aws:appconfig:*:*:application/${var.project_name}-${var.environment}-app",
+          "arn:aws:appconfig:*:*:application/${var.project_name}-${var.environment}-app/environment/*",
+          "arn:aws:appconfig:*:*:application/${var.project_name}-${var.environment}-app/configurationprofile/*"
+        ]
       }
     ]
   })

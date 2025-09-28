@@ -43,11 +43,9 @@ echo "3. S3 Bucket Health:"
 aws s3 ls s3://ons-data-platform-raw-prod/ > /dev/null && echo "✓ Raw bucket accessible" || echo "✗ Raw bucket error"
 aws s3 ls s3://ons-data-platform-processed-prod/ > /dev/null && echo "✓ Processed bucket accessible" || echo "✗ Processed bucket error"
 
-# 4. Check Timestream database
-echo "4. Timestream Database Health:"
-aws timestream-query query \
-  --query-string "SELECT COUNT(*) FROM \"ons_energy_data\".\"generation_data\" WHERE time > ago(1h)" \
-  --query 'Rows[0].Data[0].ScalarValue' --output text
+# 4. Check InfluxDB database
+echo "4. InfluxDB Database Health:"
+python scripts/validate_influxdb_performance.py --health-check-only
 
 # 5. Check recent processing activity
 echo "5. Recent Processing Activity:"
@@ -128,19 +126,25 @@ python ../../scripts/deploy.py \
   --deployment-group lambda_router-deployment-group
 ```
 
-### 2. Scale Timestream Database
+### 2. Scale InfluxDB Database
 
 ```bash
-# Check current Timestream usage
-aws timestream-query query \
-  --query-string "SHOW TABLES FROM \"ons_energy_data\"" \
-  --query 'Rows[*].Data[*].ScalarValue' --output table
+# Check current InfluxDB usage
+aws timestreaminfluxdb describe-db-instance \
+  --identifier ons-influxdb-prod \
+  --query 'DbInstance.[DbInstanceStatus,AllocatedStorage,DbInstanceClass]' --output table
 
-# Update retention policies if needed
-aws timestream-write update-table \
-  --database-name ons_energy_data \
-  --table-name generation_data \
-  --retention-properties MemoryStoreRetentionPeriodInHours=48,MagneticStoreRetentionPeriodInDays=2555
+# Scale up instance if needed
+aws timestreaminfluxdb modify-db-instance \
+  --db-instance-identifier ons-influxdb-prod \
+  --db-instance-class db.influx.large \
+  --allocated-storage 200 \
+  --apply-immediately
+
+# Update retention policies
+python scripts/manage_influxdb_retention.py \
+  --bucket energy_data \
+  --retention-period 7y
 ```
 
 ### 3. Clean Up Old Data
@@ -344,56 +348,74 @@ aws lambda update-function-configuration \
   --memory-size 1024
 ```
 
-### Issue: Timestream Write Failures
+### Issue: InfluxDB Write Failures
 
 **Symptoms:**
-- Data not appearing in Timestream
-- Write throttling errors
+- Data not appearing in InfluxDB
+- Connection timeouts
 - High write latency
 
 **Investigation Steps:**
 
-1. **Check Timestream metrics:**
+1. **Check InfluxDB metrics:**
 ```bash
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Timestream \
-  --metric-name UserErrors \
-  --dimensions Name=DatabaseName,Value=ons_energy_data \
+  --metric-name InfluxDB_WriteLatency \
+  --dimensions Name=DatabaseName,Value=ons_influxdb_prod \
   --start-time $(date -d '1 hour ago' --iso-8601) \
   --end-time $(date --iso-8601) \
   --period 300 \
-  --statistics Sum
+  --statistics Average,Maximum
 ```
 
-2. **Check write capacity:**
+2. **Check database status:**
 ```bash
-aws timestream-write describe-table \
-  --database-name ons_energy_data \
-  --table-name generation_data \
-  --query 'Table.RetentionProperties'
+aws timestreaminfluxdb describe-db-instance \
+  --identifier ons-influxdb-prod \
+  --query 'DbInstance.DbInstanceStatus' --output text
+```
+
+3. **Test connectivity:**
+```bash
+python -c "
+from src.shared_utils.influxdb_client import InfluxDBHandler
+handler = InfluxDBHandler()
+print(handler.health_check())
+"
 ```
 
 **Resolution:**
 
-1. **Implement batch writing:**
+1. **Implement batch writing with retry logic:**
 ```python
-# Update timestream_loader to use batch writes
-import boto3
+# Update influxdb_loader to use optimized batch writes
+from src.shared_utils.influxdb_client import InfluxDBHandler
+import time
 
-timestream = boto3.client('timestream-write')
-
-def batch_write_records(records, batch_size=100):
-    for i in range(0, len(records), batch_size):
-        batch = records[i:i + batch_size]
+def batch_write_with_retry(points, max_retries=3):
+    handler = InfluxDBHandler()
+    
+    for attempt in range(max_retries):
         try:
-            timestream.write_records(
-                DatabaseName='ons_energy_data',
-                TableName='generation_data',
-                Records=batch
-            )
+            handler.write_points(points, batch_size=1000)
+            return True
         except Exception as e:
-            print(f"Batch write failed: {e}")
-            # Implement retry logic
+            if attempt == max_retries - 1:
+                raise
+            wait_time = 2 ** attempt
+            time.sleep(wait_time)
+            print(f"Write retry {attempt + 1}/{max_retries} after {wait_time}s")
+    
+    return False
+```
+
+2. **Scale up InfluxDB instance:**
+```bash
+aws timestreaminfluxdb modify-db-instance \
+  --db-instance-identifier ons-influxdb-prod \
+  --db-instance-class db.influx.xlarge \
+  --apply-immediately
 ```
 
 ## Emergency Procedures

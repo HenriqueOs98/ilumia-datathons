@@ -1,8 +1,9 @@
 """
-Timestream Loader Lambda Function
+Data Loader Lambda Function
 
-This function loads processed Parquet data from S3 into Amazon Timestream.
-It handles batch loading with error handling and retries.
+This function loads processed Parquet data from S3 into the configured time series database.
+It supports both Amazon Timestream and InfluxDB with traffic switching capabilities.
+Handles batch loading with error handling and retries.
 """
 
 import json
@@ -14,28 +15,62 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 from botocore.exceptions import ClientError
 import time
+import sys
+
+# Add shared utilities to path
+sys.path.append('/opt/python')
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+try:
+    from shared_utils import (
+        InfluxDBHandler,
+        should_use_influxdb_for_ingestion,
+        DatabaseBackend,
+        record_performance_metric
+    )
+    from shared_utils.logging_config import setup_logging
+except ImportError:
+    # Fallback for testing environment
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared_utils'))
+    from influxdb_client import InfluxDBHandler
+    from traffic_switch import (
+        should_use_influxdb_for_ingestion,
+        DatabaseBackend,
+        record_performance_metric
+    )
+    from logging_config import setup_logging
 
 # Configure logging
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+try:
+    setup_logging()
+    logger = logging.getLogger(__name__)
+except:
+    # Fallback logging setup
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
 
 # Initialize AWS clients
 s3_client = boto3.client('s3')
 timestream_client = boto3.client('timestream-write')
 cloudwatch_client = boto3.client('cloudwatch')
 
-# Environment variables
-DATABASE_NAME = os.environ['TIMESTREAM_DATABASE_NAME']
-GENERATION_TABLE = os.environ['GENERATION_TABLE_NAME']
-CONSUMPTION_TABLE = os.environ['CONSUMPTION_TABLE_NAME']
-TRANSMISSION_TABLE = os.environ['TRANSMISSION_TABLE_NAME']
-MAX_BATCH_SIZE = int(os.environ.get('MAX_BATCH_SIZE', '100'))
+# Environment variables - Timestream (legacy)
+DATABASE_NAME = os.environ.get('TIMESTREAM_DATABASE_NAME', '')
+GENERATION_TABLE = os.environ.get('GENERATION_TABLE_NAME', '')
+CONSUMPTION_TABLE = os.environ.get('CONSUMPTION_TABLE_NAME', '')
+TRANSMISSION_TABLE = os.environ.get('TRANSMISSION_TABLE_NAME', '')
+
+# Environment variables - Common
+MAX_BATCH_SIZE = int(os.environ.get('MAX_BATCH_SIZE', '1000'))
 MAX_RETRIES = int(os.environ.get('MAX_RETRIES', '3'))
+
+# InfluxDB handler (lazy-loaded)
+influxdb_handler = None
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Main Lambda handler for loading data into Timestream.
+    Main Lambda handler for loading data into the configured time series database.
     
     Args:
         event: Lambda event containing S3 object information
@@ -44,6 +79,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Returns:
         Dict with processing results
     """
+    start_time = time.time()
+    backend_used = None
+    
     try:
         logger.info(f"Processing event: {json.dumps(event)}")
         
@@ -74,23 +112,43 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.error(f"Data validation failed: {validation_result['errors']}")
             return create_response(400, f"Data validation failed: {validation_result['errors']}")
         
-        # Load data into Timestream
-        load_result = load_data_to_timestream(df, dataset_type)
+        # Determine which backend to use for data ingestion
+        use_influxdb = should_use_influxdb_for_ingestion()
+        
+        if use_influxdb:
+            logger.info("Using InfluxDB for data ingestion")
+            backend_used = DatabaseBackend.INFLUXDB
+            load_result = load_data_to_influxdb(df, dataset_type)
+        else:
+            logger.info("Using Timestream for data ingestion")
+            backend_used = DatabaseBackend.TIMESTREAM
+            load_result = load_data_to_timestream(df, dataset_type)
+        
+        # Record performance metrics
+        processing_time = (time.time() - start_time) * 1000
+        record_performance_metric(backend_used, processing_time, True)
         
         # Send metrics to CloudWatch
-        send_metrics(dataset_type, load_result)
+        send_metrics(dataset_type, load_result, backend_used.value)
         
-        logger.info(f"Successfully processed {load_result['records_processed']} records")
+        logger.info(f"Successfully processed {load_result['records_processed']} records using {backend_used.value}")
         
         return create_response(200, "Data loaded successfully", {
             'records_processed': load_result['records_processed'],
             'batches_processed': load_result['batches_processed'],
-            'dataset_type': dataset_type
+            'dataset_type': dataset_type,
+            'backend_used': backend_used.value,
+            'processing_time_ms': processing_time
         })
         
     except Exception as e:
+        # Record error metrics
+        if backend_used:
+            processing_time = (time.time() - start_time) * 1000
+            record_performance_metric(backend_used, processing_time, False)
+        
         logger.error(f"Error processing event: {str(e)}", exc_info=True)
-        send_error_metrics(str(e))
+        send_error_metrics(str(e), backend_used.value if backend_used else 'unknown')
         return create_response(500, f"Internal error: {str(e)}")
 
 
@@ -180,8 +238,40 @@ def validate_data_schema(df: pd.DataFrame, dataset_type: str) -> Dict[str, Any]:
     }
 
 
+def load_data_to_influxdb(df: pd.DataFrame, dataset_type: str) -> Dict[str, int]:
+    """Load DataFrame data into InfluxDB with batch processing and retries."""
+    global influxdb_handler
+    
+    if influxdb_handler is None:
+        influxdb_handler = InfluxDBHandler()
+    
+    records_processed = 0
+    batches_processed = 0
+    
+    try:
+        # Convert DataFrame to InfluxDB format and write
+        result = influxdb_handler.write_parquet_to_influx(df, dataset_type)
+        
+        records_processed = result.get('records_written', len(df))
+        batches_processed = result.get('batches_processed', 1)
+        
+        logger.info(f"Successfully wrote {records_processed} records to InfluxDB in {batches_processed} batches")
+        
+        return {
+            'records_processed': records_processed,
+            'batches_processed': batches_processed
+        }
+        
+    except Exception as e:
+        logger.error(f"Error writing data to InfluxDB: {str(e)}")
+        raise
+
+
 def load_data_to_timestream(df: pd.DataFrame, dataset_type: str) -> Dict[str, int]:
     """Load DataFrame data into Timestream with batch processing and retries."""
+    if not DATABASE_NAME:
+        raise ValueError("Timestream database name not configured")
+        
     table_name = get_table_name(dataset_type)
     records_processed = 0
     batches_processed = 0
@@ -278,19 +368,22 @@ def get_table_name(dataset_type: str) -> str:
         'consumption': CONSUMPTION_TABLE,
         'transmission': TRANSMISSION_TABLE
     }
-    return table_mapping.get(dataset_type, GENERATION_TABLE)
+    return table_mapping.get(dataset_type, GENERATION_TABLE or 'generation_data')
 
 
-def send_metrics(dataset_type: str, load_result: Dict[str, int]) -> None:
+def send_metrics(dataset_type: str, load_result: Dict[str, int], backend: str) -> None:
     """Send custom metrics to CloudWatch."""
     try:
+        namespace = f'ONS/{backend.title()}' if backend in ['timestream', 'influxdb'] else 'ONS/DataLoader'
+        
         cloudwatch_client.put_metric_data(
-            Namespace='ONS/Timestream',
+            Namespace=namespace,
             MetricData=[
                 {
                     'MetricName': 'RecordsProcessed',
                     'Dimensions': [
-                        {'Name': 'DatasetType', 'Value': dataset_type}
+                        {'Name': 'DatasetType', 'Value': dataset_type},
+                        {'Name': 'Backend', 'Value': backend}
                     ],
                     'Value': load_result['records_processed'],
                     'Unit': 'Count',
@@ -299,7 +392,8 @@ def send_metrics(dataset_type: str, load_result: Dict[str, int]) -> None:
                 {
                     'MetricName': 'BatchesProcessed',
                     'Dimensions': [
-                        {'Name': 'DatasetType', 'Value': dataset_type}
+                        {'Name': 'DatasetType', 'Value': dataset_type},
+                        {'Name': 'Backend', 'Value': backend}
                     ],
                     'Value': load_result['batches_processed'],
                     'Unit': 'Count',
@@ -311,14 +405,19 @@ def send_metrics(dataset_type: str, load_result: Dict[str, int]) -> None:
         logger.error(f"Error sending metrics: {str(e)}")
 
 
-def send_error_metrics(error_message: str) -> None:
+def send_error_metrics(error_message: str, backend: str = 'unknown') -> None:
     """Send error metrics to CloudWatch."""
     try:
+        namespace = f'ONS/{backend.title()}' if backend in ['timestream', 'influxdb'] else 'ONS/DataLoader'
+        
         cloudwatch_client.put_metric_data(
-            Namespace='ONS/Timestream',
+            Namespace=namespace,
             MetricData=[
                 {
                     'MetricName': 'ProcessingErrors',
+                    'Dimensions': [
+                        {'Name': 'Backend', 'Value': backend}
+                    ],
                     'Value': 1,
                     'Unit': 'Count',
                     'Timestamp': datetime.utcnow()

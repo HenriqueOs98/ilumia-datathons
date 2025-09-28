@@ -424,30 +424,33 @@ jobs:
     - name: Terraform Plan
       id: plan
       run: |
+        set +e  # Don't exit on error
         terraform plan \
           -var="environment=prod" \
           -var="aws_region=${{ env.AWS_REGION }}" \
           -out=tfplan-prod \
           -detailed-exitcode
-        echo "exitcode=$?" >> $GITHUB_OUTPUT
+        PLAN_EXIT_CODE=$?
+        echo "exitcode=$PLAN_EXIT_CODE" >> $GITHUB_OUTPUT
+        echo "Terraform plan exit code: $PLAN_EXIT_CODE"
+        
+        if [ $PLAN_EXIT_CODE -eq 0 ]; then
+          echo "✅ No changes detected"
+        elif [ $PLAN_EXIT_CODE -eq 2 ]; then
+          echo "📋 Changes detected - will apply"
+        else
+          echo "❌ Plan failed with exit code $PLAN_EXIT_CODE"
+          exit $PLAN_EXIT_CODE
+        fi
       working-directory: infra
-      continue-on-error: true
     
     - name: Terraform Apply
       if: steps.plan.outputs.exitcode == '2'
-      run: terraform apply tfplan-prod
-      working-directory: infra
-    
-    - name: No changes detected
-      if: steps.plan.outputs.exitcode == '0'
-      run: echo "✅ No infrastructure changes detected"
-    
-    - name: Plan failed
-      if: steps.plan.outputs.exitcode == '1'
       run: |
-        echo "❌ Terraform plan failed"
-        echo "Please check the plan output above for errors"
-        exit 1
+        echo "🚀 Applying Terraform changes..."
+        terraform apply tfplan-prod
+        echo "✅ Terraform apply completed successfully"
+      working-directory: infra
     
     - name: Post-deployment validation
       run: |

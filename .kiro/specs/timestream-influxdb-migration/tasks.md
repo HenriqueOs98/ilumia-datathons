@@ -6,8 +6,8 @@
   - Configure database parameters, retention policies, and backup settings
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 2. Implement InfluxDB client integration in shared utilities
-  - [ ] 2.1 Create InfluxDB handler class with connection management
+- [-] 2. Implement InfluxDB client integration in shared utilities
+  - [-] 2.1 Create InfluxDB handler class with connection management
     - Write InfluxDBHandler class in src/shared_utils/influxdb_client.py
     - Implement client initialization, connection pooling, and credential management
     - Add error handling and retry logic for database connections
@@ -155,7 +155,7 @@
     - Update deployment guides and testing procedures
     - _Requirements: 1.5, 7.2, 7.4_
 
-  - [-] 9.3 Decommission legacy Timestream resources
+  - [x] 9.3 Decommission legacy Timestream resources
     - Remove old timestream_loader Lambda function and related resources
     - Clean up unused IAM roles and policies
     - Update Terraform configurations to remove deprecated Timestream resources

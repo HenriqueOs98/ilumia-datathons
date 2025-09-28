@@ -120,13 +120,13 @@ output "vpc_subnet_ids" {
 output "lambda_environment_variables" {
   description = "Environment variables for Lambda functions to connect to InfluxDB"
   value = {
-    INFLUXDB_ENDPOINT     = aws_timestreaminfluxdb_db_instance.main.endpoint
-    INFLUXDB_PORT         = "8086"
-    INFLUXDB_DATABASE     = aws_timestreaminfluxdb_db_instance.main.name
-    INFLUXDB_ORG          = aws_timestreaminfluxdb_db_instance.main.organization
-    INFLUXDB_BUCKET       = aws_timestreaminfluxdb_db_instance.main.bucket
-    INFLUXDB_SECRET_ARN   = aws_secretsmanager_secret.influxdb_credentials.arn
-    INFLUXDB_LOG_GROUP    = aws_cloudwatch_log_group.influxdb_lambda_logs.name
+    INFLUXDB_ENDPOINT   = aws_timestreaminfluxdb_db_instance.main.endpoint
+    INFLUXDB_PORT       = "8086"
+    INFLUXDB_DATABASE   = aws_timestreaminfluxdb_db_instance.main.name
+    INFLUXDB_ORG        = aws_timestreaminfluxdb_db_instance.main.organization
+    INFLUXDB_BUCKET     = aws_timestreaminfluxdb_db_instance.main.bucket
+    INFLUXDB_SECRET_ARN = aws_secretsmanager_secret.influxdb_credentials.arn
+    INFLUXDB_LOG_GROUP  = aws_cloudwatch_log_group.influxdb_lambda_logs.name
   }
   sensitive = true
 }

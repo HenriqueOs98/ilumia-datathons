@@ -1,15 +1,15 @@
 # Timestream for InfluxDB Database Instance
 resource "aws_timestreaminfluxdb_db_instance" "main" {
   allocated_storage      = var.allocated_storage
-  bucket                = var.influxdb_bucket
-  db_instance_type      = var.db_instance_class
-  name                  = "${var.project_name}-${var.environment}-influxdb"
-  organization          = var.influxdb_org
-  password              = var.password
-  publicly_accessible  = var.publicly_accessible
-  username              = var.username
+  bucket                 = var.influxdb_bucket
+  db_instance_type       = var.db_instance_class
+  name                   = "${var.project_name}-${var.environment}-influxdb"
+  organization           = var.influxdb_org
+  password               = var.password
+  publicly_accessible    = var.publicly_accessible
+  username               = var.username
   vpc_security_group_ids = [aws_security_group.influxdb.id]
-  vpc_subnet_ids        = var.subnet_ids
+  vpc_subnet_ids         = var.subnet_ids
 
   tags = {
     Name        = "${var.project_name}-${var.environment}-influxdb"

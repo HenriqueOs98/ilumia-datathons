@@ -23,7 +23,7 @@
     - _Requirements: 2.1, 2.2, 3.2_
 
 - [x] 3. Create new InfluxDB loader Lambda function
-  - [-] 3.1 Implement InfluxDB loader Lambda function
+  - [x] 3.1 Implement InfluxDB loader Lambda function
     - Create src/influxdb_loader/lambda_function.py based on existing timestream_loader
     - Use InfluxDBHandler and data conversion utilities from shared_utils
     - Implement batch writing with configurable batch sizes for performance
@@ -37,7 +37,7 @@
     - Add S3 trigger configuration for processed data
     - _Requirements: 3.1, 3.4_
 
-- [ ] 4. Create data migration utilities
+- [-] 4. Create data migration utilities
   - [ ] 4.1 Implement Timestream data export functionality
     - Create src/migration_tools/timestream_exporter.py
     - Write functions to query and export existing Timestream data to S3

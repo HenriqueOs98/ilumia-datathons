@@ -27,7 +27,7 @@ output "log_groups" {
 
 output "budget_name" {
   description = "Name of the AWS Budget for cost monitoring"
-  value       = aws_budgets_budget.ons_platform_budget.name
+  value       = aws_budgets_budget.ons_platform_budget[0].name
 }
 
 # Cost anomaly detector output removed as the resource is not available in all regions

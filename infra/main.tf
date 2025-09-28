@@ -89,16 +89,18 @@ module "timestream_influxdb" {
 module "lambda_functions" {
   source = "./modules/lambda"
 
-  environment         = var.environment
-  project_name        = var.project_name
-  s3_raw_bucket       = module.s3_buckets.raw_bucket_name
-  s3_processed_bucket = module.s3_buckets.processed_bucket_name
-  # InfluxDB configuration
-  influxdb_endpoint          = module.timestream_influxdb.endpoint
-  influxdb_port              = module.timestream_influxdb.port
-  influxdb_lambda_role_arn   = module.timestream_influxdb.lambda_role_arn
-  influxdb_security_group_id = module.timestream_influxdb.lambda_security_group_id
-  influxdb_subnet_ids        = module.vpc.private_subnet_ids
+  environment                = var.environment
+  project_name               = var.project_name
+  s3_raw_bucket              = module.s3_buckets.raw_bucket_name
+  s3_processed_bucket        = module.s3_buckets.processed_bucket_name
+  s3_processed_bucket_arn    = module.s3_buckets.processed_bucket_arn
+  vpc_id                     = module.vpc.vpc_id
+  private_subnet_ids         = module.vpc.private_subnet_ids
+  vpc_cidr                   = var.vpc_cidr
+  influxdb_url               = module.timestream_influxdb.endpoint
+  influxdb_org               = var.influxdb_org
+  influxdb_bucket            = var.influxdb_bucket
+  influxdb_token_secret_name = var.influxdb_token_secret_name
   log_retention_days         = var.log_retention_days
   sns_topic_arn              = module.monitoring.sns_topic_arn
   knowledge_base_id          = module.knowledge_base.knowledge_base_id

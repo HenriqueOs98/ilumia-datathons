@@ -140,6 +140,12 @@ variable "influxdb_bucket" {
   default     = "energy_data"
 }
 
+variable "influxdb_token_secret_name" {
+  description = "Name of the secret containing the InfluxDB token"
+  type        = string
+  default     = "ons/influxdb/token"
+}
+
 # VPC Configuration
 variable "vpc_cidr" {
   description = "CIDR block for VPC"

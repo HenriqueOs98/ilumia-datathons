@@ -59,14 +59,14 @@ output "s3_processed_bucket_replica_name" {
 #   value       = module.timestream.table_arns
 # }
 
-output "timestream_loader_lambda_arn" {
-  description = "ARN of the Timestream loader Lambda function"
-  value       = module.lambda_functions.timestream_loader_arn
+output "influxdb_loader_lambda_arn" {
+  description = "ARN of the InfluxDB loader Lambda function"
+  value       = module.lambda_functions.influxdb_loader_arn
 }
 
-output "timestream_loader_lambda_name" {
-  description = "Name of the Timestream loader Lambda function"
-  value       = module.lambda_functions.timestream_loader_name
+output "influxdb_loader_lambda_name" {
+  description = "Name of the InfluxDB loader Lambda function"
+  value       = module.lambda_functions.influxdb_loader_name
 }
 
 # Knowledge Base outputs
@@ -160,7 +160,7 @@ output "lambda_function_names" {
     lambda_router             = module.lambda_functions.lambda_router_name
     structured_data_processor = module.lambda_functions.structured_data_processor_name
     rag_query_processor       = module.lambda_functions.rag_query_processor_name
-    timestream_loader         = module.lambda_functions.timestream_loader_name
+    influxdb_loader           = module.lambda_functions.influxdb_loader_name
     cost_optimizer            = module.lambda_functions.cost_optimizer_name
   }
 }

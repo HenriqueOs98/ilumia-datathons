@@ -17,7 +17,8 @@ influxdb_instance_class          = "db.influx.medium"
 influxdb_allocated_storage       = 20
 influxdb_backup_retention_period = 7
 influxdb_org                     = "ons-energy"
-influxdb_bucket                  = "energy_data"
+influxdb_bucket = "energy_data"
+influxdb_token_secret_name = "ons/influxdb/token" # AWS Secrets Manager secret name for InfluxDB token
 
 # S3 Configuration
 enable_cross_region_replication = false

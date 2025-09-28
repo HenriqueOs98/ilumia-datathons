@@ -42,7 +42,7 @@ provider "aws" {
 # Generate a random password for InfluxDB if not provided
 resource "random_password" "influxdb" {
   length  = 16
-  special = true
+  special = false
 }
 
 # VPC Infrastructure

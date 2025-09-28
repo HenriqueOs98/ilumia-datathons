@@ -361,7 +361,7 @@ jobs:
       working-directory: infra
     
     - name: Terraform Apply
-      run: terraform apply tfplan-staging
+      run: terraform apply -compact-warnings -no-color tfplan-staging
       working-directory: infra
     
     - name: Validate deployment
@@ -448,7 +448,7 @@ jobs:
       if: steps.plan.outputs.exitcode == '2'
       run: |
         echo "🚀 Applying Terraform changes..."
-        terraform apply tfplan-prod
+        terraform apply -compact-warnings -no-color tfplan-prod
         echo "✅ Terraform apply completed successfully"
       working-directory: infra
     

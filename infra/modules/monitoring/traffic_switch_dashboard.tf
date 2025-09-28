@@ -181,11 +181,7 @@ resource "aws_cloudwatch_dashboard" "traffic_switching" {
     ]
   })
 
-  tags = {
-    Name        = "${var.project_name}-${var.environment}-traffic-switching-dashboard"
-    Environment = var.environment
-    Purpose     = "Monitor InfluxDB migration traffic switching"
-  }
+
 }
 
 # Custom Metrics for Traffic Switching Performance

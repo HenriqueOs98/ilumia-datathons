@@ -85,3 +85,8 @@ variable "influxdb_monitor_lambda_arn" {
   type        = string
   default     = ""
 }
+
+variable "sns_topic_arn" {
+  description = "ARN of the SNS topic for alarms"
+  type        = string
+}

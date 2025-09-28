@@ -75,6 +75,10 @@ module "s3_buckets" {
 }
 
 # Timestream for InfluxDB
+locals {
+  influxdb_password = var.influxdb_password == null ? random_password.influxdb.result : var.influxdb_password
+}
+
 module "timestream_influxdb" {
   source = "./modules/timestream_influxdb"
 
@@ -82,7 +86,7 @@ module "timestream_influxdb" {
   project_name            = var.project_name
   vpc_id                  = module.vpc.vpc_id
   subnet_ids              = module.vpc.private_subnet_ids
-  password                = var.influxdb_password == null ? random_password.influxdb.result : var.influxdb_password
+  password                = local.influxdb_password
   influxdb_token          = var.influxdb_token
   db_instance_class       = var.influxdb_instance_class
   allocated_storage       = var.influxdb_allocated_storage

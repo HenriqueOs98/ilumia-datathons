@@ -94,3 +94,79 @@ variable "deployment_notification_email" {
   type        = string
   default     = ""
 }
+
+# InfluxDB Configuration
+variable "influxdb_password" {
+  description = "Password for InfluxDB master user"
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "influxdb_token" {
+  description = "InfluxDB authentication token"
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "influxdb_instance_class" {
+  description = "InfluxDB instance class"
+  type        = string
+  default     = "db.influx.medium"
+}
+
+variable "influxdb_allocated_storage" {
+  description = "InfluxDB allocated storage in GB"
+  type        = number
+  default     = 20
+}
+
+variable "influxdb_backup_retention_period" {
+  description = "InfluxDB backup retention period in days"
+  type        = number
+  default     = 7
+}
+
+variable "influxdb_org" {
+  description = "InfluxDB organization name"
+  type        = string
+  default     = "ons-energy"
+}
+
+variable "influxdb_bucket" {
+  description = "Default InfluxDB bucket name"
+  type        = string
+  default     = "energy_data"
+}
+
+# VPC Configuration
+variable "vpc_cidr" {
+  description = "CIDR block for VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "public_subnet_cidrs" {
+  description = "CIDR blocks for public subnets"
+  type        = list(string)
+  default     = ["10.0.1.0/24", "10.0.2.0/24"]
+}
+
+variable "private_subnet_cidrs" {
+  description = "CIDR blocks for private subnets"
+  type        = list(string)
+  default     = ["10.0.10.0/24", "10.0.20.0/24"]
+}
+
+variable "enable_nat_gateway" {
+  description = "Enable NAT Gateway for private subnets"
+  type        = bool
+  default     = true
+}
+
+variable "enable_vpc_endpoints" {
+  description = "Enable VPC endpoints for AWS services"
+  type        = bool
+  default     = true
+}

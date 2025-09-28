@@ -18,30 +18,8 @@ variable "s3_processed_bucket" {
   type        = string
 }
 
-variable "timestream_database_name" {
-  description = "Timestream database name"
-  type        = string
-}
-
-variable "generation_table_name" {
-  description = "Timestream generation table name"
-  type        = string
-}
-
-variable "consumption_table_name" {
-  description = "Timestream consumption table name"
-  type        = string
-}
-
-variable "transmission_table_name" {
-  description = "Timestream transmission table name"
-  type        = string
-}
-
-variable "timestream_lambda_role_arn" {
-  description = "IAM role ARN for Timestream Lambda function"
-  type        = string
-}
+# Timestream-related variables removed as part of decommissioning
+# These variables were used by the timestream_loader function which has been removed
 
 variable "log_retention_days" {
   description = "CloudWatch log retention in days"

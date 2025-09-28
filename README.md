@@ -10,7 +10,7 @@ This platform implements a serverless, event-driven architecture on AWS for proc
 
 - **Data Ingestion**: S3 + EventBridge for automated file processing
 - **Processing**: Lambda functions + AWS Batch for different data types
-- **Storage**: S3 Data Lake + Amazon Timestream for time series
+- **Storage**: S3 Data Lake + Amazon Timestream for InfluxDB for time series
 - **AI/ML**: Amazon Bedrock + Knowledge Bases for intelligent querying
 - **API**: API Gateway + Lambda for REST endpoints
 - **Monitoring**: CloudWatch + SNS for comprehensive observability
@@ -19,13 +19,44 @@ This platform implements a serverless, event-driven architecture on AWS for proc
 ## 🚀 Features
 
 - **Automated Data Processing**: Event-driven processing of CSV, XLSX, and PDF files
-- **Time Series Storage**: Amazon Timestream for high-performance time series data
+- **Time Series Storage**: Amazon Timestream for InfluxDB for high-performance time series data
 - **Intelligent Querying**: RAG system using Amazon Bedrock and Knowledge Bases
 - **Scalable Architecture**: Serverless components that scale automatically
 - **Cost Optimization**: Pay-per-use model with intelligent resource management
 - **Blue-Green Deployments**: Zero-downtime deployments with automatic rollback
 - **Feature Flags**: Controlled rollouts using AWS AppConfig
 - **Comprehensive Monitoring**: Real-time metrics and alerting
+
+## 🔄 Migration to InfluxDB
+
+This platform has been migrated from Amazon Timestream to Amazon Timestream for InfluxDB to improve service availability and query capabilities.
+
+### Migration Benefits
+
+- **Better Service Availability**: No AWS service access restrictions
+- **Enhanced Query Language**: Support for both InfluxQL and Flux queries
+- **Improved Tooling**: Better integration with existing InfluxDB ecosystem
+- **Cost Optimization**: More predictable pricing model
+- **Advanced Analytics**: Enhanced time series analysis capabilities
+
+### Migration Status
+
+- ✅ **Infrastructure**: InfluxDB cluster deployed and configured
+- ✅ **Data Migration**: Historical data migrated and validated
+- ✅ **Application Updates**: All Lambda functions updated to use InfluxDB
+- ✅ **API Compatibility**: Existing API endpoints maintained
+- ✅ **Monitoring**: CloudWatch metrics and alarms updated
+- ✅ **Legacy Cleanup**: Timestream resources decommissioned
+
+### Data Archival
+
+Legacy Timestream data has been exported and archived for compliance:
+- **Location**: S3 bucket with 7-year retention policy
+- **Format**: Parquet files with metadata
+- **Integrity**: Checksums and validation reports
+- **Access**: Available for audit and compliance purposes
+
+For detailed migration information, see [Timestream Decommissioning Guide](docs/timestream-decommissioning-guide.md).
 
 ## 📁 Repository Structure
 
@@ -43,7 +74,7 @@ This platform implements a serverless, event-driven architecture on AWS for proc
 │   │   ├── monitoring/       # CloudWatch and alerting
 │   │   ├── s3/              # Data lake storage
 │   │   ├── step_functions/   # Workflow orchestration
-│   │   └── timestream/       # Time series database
+│   │   └── timestream_influxdb/ # Time series database (InfluxDB)
 │   ├── environments/         # Environment-specific configs
 │   ├── main.tf              # Main infrastructure definition
 │   ├── variables.tf         # Input variables

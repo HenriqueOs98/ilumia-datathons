@@ -18,28 +18,11 @@ output "api_lambda_arn" {
 
 output "function_names" {
   description = "List of Lambda function names"
-  value       = ["placeholder-router", "placeholder-processor", "rag-query-processor", "timestream-loader"]
+  value       = ["placeholder-router", "placeholder-processor", "rag-query-processor"]
 }
 
-output "timestream_loader_arn" {
-  description = "ARN of the Timestream loader Lambda function"
-  value       = aws_lambda_function.timestream_loader.arn
-}
-
-output "timestream_loader_name" {
-  description = "Name of the Timestream loader Lambda function"
-  value       = aws_lambda_function.timestream_loader.function_name
-}
-
-output "timestream_loader_log_group" {
-  description = "CloudWatch log group for Timestream loader"
-  value       = aws_cloudwatch_log_group.timestream_loader.name
-}
-
-output "pandas_layer_arn" {
-  description = "ARN of the pandas Lambda layer"
-  value       = aws_lambda_layer_version.pandas_layer.arn
-}
+# Timestream loader outputs removed as part of decommissioning
+# These outputs were for the timestream_loader function which has been removed
 
 # RAG Query Processor outputs
 output "rag_query_processor_arn" {

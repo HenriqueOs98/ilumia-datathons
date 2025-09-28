@@ -35,6 +35,19 @@ provider "aws" {
   }
 }
 
+# VPC Infrastructure
+module "vpc" {
+  source = "./modules/vpc"
+
+  environment          = var.environment
+  project_name         = var.project_name
+  vpc_cidr             = var.vpc_cidr
+  public_subnet_cidrs  = var.public_subnet_cidrs
+  private_subnet_cidrs = var.private_subnet_cidrs
+  enable_nat_gateway   = var.enable_nat_gateway
+  enable_vpc_endpoints = var.enable_vpc_endpoints
+}
+
 # S3 Buckets
 module "s3_buckets" {
   source = "./modules/s3"
@@ -51,6 +64,27 @@ module "s3_buckets" {
   }
 }
 
+# Timestream for InfluxDB
+module "timestream_influxdb" {
+  source = "./modules/timestream_influxdb"
+
+  environment             = var.environment
+  project_name            = var.project_name
+  vpc_id                  = module.vpc.vpc_id
+  subnet_ids              = module.vpc.private_subnet_ids
+  password                = var.influxdb_password
+  influxdb_token          = var.influxdb_token
+  db_instance_class       = var.influxdb_instance_class
+  allocated_storage       = var.influxdb_allocated_storage
+  backup_retention_period = var.influxdb_backup_retention_period
+  influxdb_org            = var.influxdb_org
+  influxdb_bucket         = var.influxdb_bucket
+  processed_data_bucket   = module.s3_buckets.processed_bucket_name
+  rejected_data_bucket    = module.s3_buckets.failed_bucket_name
+  log_retention_days      = var.log_retention_days
+  alarm_actions           = [module.monitoring.sns_topic_arn]
+}
+
 # Lambda Functions
 module "lambda_functions" {
   source = "./modules/lambda"
@@ -59,16 +93,16 @@ module "lambda_functions" {
   project_name        = var.project_name
   s3_raw_bucket       = module.s3_buckets.raw_bucket_name
   s3_processed_bucket = module.s3_buckets.processed_bucket_name
-  # Timestream temporarily disabled
-  # timestream_database_name   = module.timestream.database_name
-  # generation_table_name      = module.timestream.generation_table_name
-  # consumption_table_name     = module.timestream.consumption_table_name
-  # transmission_table_name    = module.timestream.transmission_table_name
-  # timestream_lambda_role_arn = module.timestream.lambda_role_arn
-  log_retention_days = var.log_retention_days
-  sns_topic_arn      = module.monitoring.sns_topic_arn
-  knowledge_base_id  = module.knowledge_base.knowledge_base_id
-  bedrock_model_arn  = var.bedrock_model_arn
+  # InfluxDB configuration
+  influxdb_endpoint          = module.timestream_influxdb.endpoint
+  influxdb_port              = module.timestream_influxdb.port
+  influxdb_lambda_role_arn   = module.timestream_influxdb.lambda_role_arn
+  influxdb_security_group_id = module.timestream_influxdb.lambda_security_group_id
+  influxdb_subnet_ids        = module.vpc.private_subnet_ids
+  log_retention_days         = var.log_retention_days
+  sns_topic_arn              = module.monitoring.sns_topic_arn
+  knowledge_base_id          = module.knowledge_base.knowledge_base_id
+  bedrock_model_arn          = var.bedrock_model_arn
 }
 
 # Step Functions
@@ -149,10 +183,7 @@ module "codedeploy" {
       function_name = module.lambda_functions.api_lambda_name
       alias_name    = "live"
     }
-    timestream_loader = {
-      function_name = module.lambda_functions.timestream_loader_name
-      alias_name    = "live"
-    }
+
   }
   error_rate_threshold   = var.deployment_error_threshold
   duration_threshold     = var.deployment_duration_threshold

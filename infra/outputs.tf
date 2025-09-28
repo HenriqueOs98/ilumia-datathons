@@ -164,3 +164,67 @@ output "lambda_function_names" {
     cost_optimizer            = module.lambda_functions.cost_optimizer_name
   }
 }
+
+# VPC Outputs
+output "vpc_id" {
+  description = "ID of the VPC"
+  value       = module.vpc.vpc_id
+}
+
+output "vpc_cidr_block" {
+  description = "CIDR block of the VPC"
+  value       = module.vpc.vpc_cidr_block
+}
+
+output "public_subnet_ids" {
+  description = "IDs of the public subnets"
+  value       = module.vpc.public_subnet_ids
+}
+
+output "private_subnet_ids" {
+  description = "IDs of the private subnets"
+  value       = module.vpc.private_subnet_ids
+}
+
+output "nat_gateway_public_ips" {
+  description = "Public IPs of the NAT Gateways"
+  value       = module.vpc.nat_gateway_public_ips
+}
+
+# InfluxDB Outputs
+output "influxdb_endpoint" {
+  description = "InfluxDB connection endpoint"
+  value       = module.timestream_influxdb.endpoint
+  sensitive   = true
+}
+
+output "influxdb_port" {
+  description = "InfluxDB connection port"
+  value       = module.timestream_influxdb.port
+}
+
+output "influxdb_database_name" {
+  description = "InfluxDB database name"
+  value       = module.timestream_influxdb.db_name
+}
+
+output "influxdb_instance_identifier" {
+  description = "InfluxDB instance identifier"
+  value       = module.timestream_influxdb.db_instance_identifier
+}
+
+output "influxdb_lambda_role_arn" {
+  description = "ARN of the InfluxDB Lambda IAM role"
+  value       = module.timestream_influxdb.lambda_role_arn
+}
+
+output "influxdb_security_group_id" {
+  description = "ID of the InfluxDB security group"
+  value       = module.timestream_influxdb.security_group_id
+}
+
+output "influxdb_credentials_secret_arn" {
+  description = "ARN of the InfluxDB credentials secret"
+  value       = module.timestream_influxdb.credentials_secret_arn
+  sensitive   = true
+}

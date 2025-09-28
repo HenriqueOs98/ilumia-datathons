@@ -30,8 +30,8 @@ This platform implements a serverless, event-driven architecture on AWS for proc
 ## 📁 Repository Structure
 
 ```
-├── .github/workflows/          # CI/CD pipelines
-├── docs/                      # Documentation
+├── .github/workflows/          # CI/CD pipelines & auto-docs
+├── docs/                      # Auto-generated documentation
 ├── infra/                     # Terraform infrastructure code
 │   ├── modules/              # Reusable Terraform modules
 │   │   ├── api_gateway/      # API Gateway configuration
@@ -191,6 +191,39 @@ python scripts/rollback.py --action rollback-function \
 - **Critical**: System failures, high error rates
 - **Warning**: Performance degradation, cost anomalies
 - **Info**: Deployment status, maintenance windows
+
+## 📚 Documentation
+
+### Automated Documentation
+
+The platform includes automated documentation generation that:
+
+- **Auto-generates** API docs from Lambda function docstrings
+- **Updates** component documentation from source code comments  
+- **Maintains** infrastructure documentation from Terraform files
+- **Creates** architecture diagrams and operational runbooks
+
+### Documentation Workflow
+
+1. **Trigger**: Code changes to `src/` or `infra/` directories
+2. **Generation**: Automated documentation update via GitHub Actions
+3. **Review**: Creates PR with updated docs for review
+4. **Auto-merge**: Automatically merges if validation passes
+5. **Deploy**: Updates live documentation site on GitHub Pages
+
+### Accessing Documentation
+
+- **Live Site**: [GitHub Pages](https://your-org.github.io/ons-data-platform)
+- **Local Build**: `python scripts/generate_docs.py --project-root .`
+- **Source Files**: Available in `docs/` directory
+
+### Documentation Structure
+
+- `api.md` - API reference and endpoints
+- `architecture.md` - System design and components
+- `deployment-guide.md` - Deployment procedures
+- `operations-runbook.md` - Operational procedures
+- `troubleshooting.md` - Common issues and solutions
 
 ## 🔒 Security
 

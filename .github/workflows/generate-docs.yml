@@ -6,14 +6,14 @@ on:
     paths:
       - 'src/**'
       - 'infra/**'
-      - 'docs/**'
       - 'scripts/generate_docs.py'
+      # Exclude docs/** to prevent infinite loops
   pull_request:
     branches: [main]
     paths:
       - 'src/**'
       - 'infra/**'
-      - 'docs/**'
+      - 'scripts/generate_docs.py'
   workflow_dispatch:
 
 env:
@@ -55,36 +55,40 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Commit documentation changes
-        if: steps.verify-changed-files.outputs.changed == 'true' && github.event_name == 'push'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add docs/
-          git commit -m "docs: auto-generate documentation [skip ci]" || exit 0
-          git push
-
-      - name: Create Pull Request for documentation
-        if: steps.verify-changed-files.outputs.changed == 'true' && github.event_name == 'pull_request'
+      - name: Create Pull Request for documentation updates
+        if: steps.verify-changed-files.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "docs: auto-generate documentation"
-          title: "Auto-generated documentation updates"
+          title: "📚 Auto-generated documentation updates"
           body: |
-            This PR contains automatically generated documentation updates based on code changes.
+            ## 🤖 Automated Documentation Update
             
-            ## Changes
-            - Updated API documentation from Lambda function docstrings
-            - Updated component documentation from source code
-            - Updated infrastructure documentation from Terraform files
+            This PR contains automatically generated documentation updates based on recent code changes.
             
-            ## Review Notes
+            ### 📋 Changes Included
+            - 🔄 Updated API documentation from Lambda function docstrings
+            - 📦 Updated component documentation from source code
+            - 🏗️ Updated infrastructure documentation from Terraform files
+            - 🏛️ Updated architecture documentation
+            
+            ### 🔍 Review Notes
             - Documentation is auto-generated from code comments and docstrings
             - Please review for accuracy and completeness
-            - Manual edits to generated files will be overwritten
-          branch: auto-docs-update
+            - Manual edits to generated files will be overwritten on next update
+            - This PR was triggered by changes to: `${{ github.event.head_commit.message }}`
+            
+            ### 🚀 Auto-merge
+            This PR can be safely auto-merged if the validation checks pass.
+          branch: docs/auto-update-${{ github.run_number }}
           delete-branch: true
+          labels: |
+            documentation
+            automated
+            auto-merge
+          assignees: ${{ github.actor }}
+          draft: false
 
   validate-docs:
     runs-on: ubuntu-latest
@@ -236,15 +240,76 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download documentation artifacts
-        uses: actions/download-artifact@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          name: documentation-site
-          path: site/
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install documentation tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install mkdocs mkdocs-material markdown-include
+
+      - name: Generate documentation
+        run: |
+          python scripts/generate_docs.py --project-root .
+
+      - name: Create mkdocs.yml
+        run: |
+          cat > mkdocs.yml << EOF
+          site_name: ONS Data Platform Documentation
+          site_description: Comprehensive documentation for the ONS Data Platform
+          site_author: Platform Engineering Team
+          
+          theme:
+            name: material
+            palette:
+              primary: blue
+              accent: light blue
+            features:
+              - navigation.tabs
+              - navigation.sections
+              - navigation.expand
+              - search.highlight
+          
+          nav:
+            - Home: index.md
+            - Architecture: architecture.md
+            - API Reference: api.md
+            - Infrastructure: infrastructure.md
+            - Components:
+              - Batch PDF Processor: batch_pdf_processor.md
+              - RAG Query Processor: rag_query_processor.md
+              - Shared Utils: shared_utils.md
+              - Structured Data Processor: structured_data_processor.md
+              - Timestream Loader: timestream_loader.md
+            - Operations:
+              - Deployment Guide: deployment-guide.md
+              - Operations Runbook: operations-runbook.md
+              - Troubleshooting: troubleshooting.md
+          
+          markdown_extensions:
+            - admonition
+            - codehilite
+            - toc:
+                permalink: true
+            - pymdownx.superfences:
+                custom_fences:
+                  - name: mermaid
+                    class: mermaid
+                    format: !!python/name:pymdownx.superfences.fence_code_format
+          
+          plugins:
+            - search
+            - markdown-include
+          EOF
+
+      - name: Build documentation site
+        run: mkdocs build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./site
-          cname: docs.ons-platform.com  # Optional: custom domain
+          # cname: docs.ons-platform.com  # Optional: custom domain

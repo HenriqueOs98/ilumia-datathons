@@ -11,7 +11,6 @@ enable_nat_gateway   = true
 enable_vpc_endpoints = true
 
 # InfluxDB Configuration
-influxdb_password                = "SecureInfluxDBPassword123!"
 influxdb_token                   = "influxdb-token-placeholder-will-be-generated"
 influxdb_instance_class          = "db.influx.medium"
 influxdb_allocated_storage       = 20

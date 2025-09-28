@@ -77,3 +77,19 @@ output "api_lambda_name" {
   description = "Name of the API Lambda function"
   value       = "placeholder-api"
 }
+
+# Additional outputs for main module compatibility
+output "lambda_router_name" {
+  description = "Name of the lambda router function"
+  value       = "placeholder-router"
+}
+
+output "structured_data_processor_name" {
+  description = "Name of the structured data processor function"
+  value       = "placeholder-processor"
+}
+
+output "cost_optimizer_name" {
+  description = "Name of the cost optimizer function"
+  value       = "placeholder-cost-optimizer"
+}

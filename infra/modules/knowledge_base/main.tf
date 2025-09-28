@@ -89,14 +89,14 @@ resource "aws_iam_role_policy" "knowledge_base_bedrock_policy" {
 
 # OpenSearch Serverless encryption policy
 resource "aws_opensearchserverless_security_policy" "knowledge_base_encryption" {
-  name = "${var.project_name}-${var.environment}-kb-encryption"
+  name = "ons-${var.environment}-kb-encryption"
   type = "encryption"
 
   policy = jsonencode({
     Rules = [
       {
         Resource = [
-          "collection/${var.project_name}-${var.environment}-kb"
+          "collection/ons-${var.environment}-kb"
         ]
         ResourceType = "collection"
       }
@@ -107,7 +107,7 @@ resource "aws_opensearchserverless_security_policy" "knowledge_base_encryption" 
 
 # OpenSearch Serverless network policy
 resource "aws_opensearchserverless_security_policy" "knowledge_base_network" {
-  name = "${var.project_name}-${var.environment}-kb-network"
+  name = "ons-${var.environment}-kb-network"
   type = "network"
 
   policy = jsonencode([
@@ -115,7 +115,7 @@ resource "aws_opensearchserverless_security_policy" "knowledge_base_network" {
       Rules = [
         {
           Resource = [
-            "collection/${var.project_name}-${var.environment}-kb"
+            "collection/ons-${var.environment}-kb"
           ]
           ResourceType = "collection"
         }
@@ -127,7 +127,7 @@ resource "aws_opensearchserverless_security_policy" "knowledge_base_network" {
 
 # OpenSearch Serverless data access policy
 resource "aws_opensearchserverless_access_policy" "knowledge_base_data_access" {
-  name = "${var.project_name}-${var.environment}-kb-data-access"
+  name = "ons-${var.environment}-kb-data-access"
   type = "data"
 
   policy = jsonencode([
@@ -135,7 +135,7 @@ resource "aws_opensearchserverless_access_policy" "knowledge_base_data_access" {
       Rules = [
         {
           Resource = [
-            "collection/${var.project_name}-${var.environment}-kb"
+            "collection/ons-${var.environment}-kb"
           ]
           Permission = [
             "aoss:CreateCollectionItems",
@@ -170,7 +170,7 @@ resource "aws_opensearchserverless_access_policy" "knowledge_base_data_access" {
 
 # OpenSearch Serverless collection for vector storage
 resource "aws_opensearchserverless_collection" "knowledge_base" {
-  name = "${var.project_name}-${var.environment}-kb"
+  name = "ons-${var.environment}-kb"
   type = "VECTORSEARCH"
 
   description = "Vector database for ONS Data Platform Knowledge Base"

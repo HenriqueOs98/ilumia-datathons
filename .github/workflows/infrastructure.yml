@@ -228,8 +228,14 @@ jobs:
           -var="environment=${{ matrix.environment }}" \
           -var="aws_region=${{ env.AWS_REGION }}" \
           -out=tfplan-${{ matrix.environment }} \
-          -detailed-exitcode
-        echo "exitcode=$?" >> $GITHUB_OUTPUT
+          -detailed-exitcode > plan.log 2>&1
+        PLAN_EXIT_CODE=$?
+        echo "exitcode=$PLAN_EXIT_CODE" >> $GITHUB_OUTPUT
+        if [ $PLAN_EXIT_CODE -ne 0 ] && [ $PLAN_EXIT_CODE -ne 2 ]; then
+          echo "Terraform plan failed. See full log below."
+          cat plan.log
+          exit $PLAN_EXIT_CODE
+        fi
       working-directory: infra
       continue-on-error: false
     

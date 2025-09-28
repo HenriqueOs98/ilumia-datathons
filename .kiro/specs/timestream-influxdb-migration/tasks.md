@@ -22,7 +22,7 @@
     - Create unit tests for data conversion functions
     - _Requirements: 2.1, 2.2, 3.2_
 
-- [-] 3. Create new InfluxDB loader Lambda function
+- [x] 3. Create new InfluxDB loader Lambda function
   - [-] 3.1 Implement InfluxDB loader Lambda function
     - Create src/influxdb_loader/lambda_function.py based on existing timestream_loader
     - Use InfluxDBHandler and data conversion utilities from shared_utils
@@ -30,7 +30,7 @@
     - Add comprehensive error handling and CloudWatch metrics
     - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-  - [ ] 3.2 Update Lambda module to deploy InfluxDB loader
+  - [x] 3.2 Update Lambda module to deploy InfluxDB loader
     - Modify infra/modules/lambda/main.tf to include influxdb_loader function
     - Configure environment variables for InfluxDB connection
     - Set up VPC configuration and security group access

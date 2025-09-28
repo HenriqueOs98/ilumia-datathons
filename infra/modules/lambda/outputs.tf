@@ -18,11 +18,34 @@ output "api_lambda_arn" {
 
 output "function_names" {
   description = "List of Lambda function names"
-  value       = ["placeholder-router", "placeholder-processor", "rag-query-processor"]
+  value       = ["placeholder-router", "placeholder-processor", "rag-query-processor", aws_lambda_function.influxdb_loader.function_name]
 }
 
-# Timestream loader outputs removed as part of decommissioning
-# These outputs were for the timestream_loader function which has been removed
+# InfluxDB Loader outputs
+output "influxdb_loader_arn" {
+  description = "ARN of the InfluxDB loader Lambda function"
+  value       = aws_lambda_function.influxdb_loader.arn
+}
+
+output "influxdb_loader_name" {
+  description = "Name of the InfluxDB loader Lambda function"
+  value       = aws_lambda_function.influxdb_loader.function_name
+}
+
+output "influxdb_loader_log_group" {
+  description = "CloudWatch log group for InfluxDB loader"
+  value       = aws_cloudwatch_log_group.influxdb_loader.name
+}
+
+output "influxdb_lambda_role_arn" {
+  description = "ARN of the InfluxDB Lambda execution role"
+  value       = aws_iam_role.influxdb_lambda_role.arn
+}
+
+output "shared_utils_layer_arn" {
+  description = "ARN of the shared utilities Lambda layer"
+  value       = aws_lambda_layer_version.shared_utils_layer.arn
+}
 
 # RAG Query Processor outputs
 output "rag_query_processor_arn" {

@@ -18,8 +18,49 @@ variable "s3_processed_bucket" {
   type        = string
 }
 
-# Timestream-related variables removed as part of decommissioning
-# These variables were used by the timestream_loader function which has been removed
+variable "s3_processed_bucket_arn" {
+  description = "S3 processed data bucket ARN"
+  type        = string
+}
+
+# InfluxDB-related variables
+variable "influxdb_url" {
+  description = "InfluxDB instance URL"
+  type        = string
+}
+
+variable "influxdb_org" {
+  description = "InfluxDB organization name"
+  type        = string
+  default     = "ons-energy"
+}
+
+variable "influxdb_bucket" {
+  description = "InfluxDB bucket name for time series data"
+  type        = string
+  default     = "energy_data"
+}
+
+variable "influxdb_token_secret_name" {
+  description = "AWS Secrets Manager secret name containing InfluxDB token"
+  type        = string
+}
+
+# VPC configuration for InfluxDB Lambda
+variable "vpc_id" {
+  description = "VPC ID for Lambda functions"
+  type        = string
+}
+
+variable "vpc_cidr" {
+  description = "VPC CIDR block"
+  type        = string
+}
+
+variable "private_subnet_ids" {
+  description = "List of private subnet IDs for Lambda functions"
+  type        = list(string)
+}
 
 variable "log_retention_days" {
   description = "CloudWatch log retention in days"

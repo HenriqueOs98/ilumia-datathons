@@ -1,4 +1,4 @@
-# Manual de Operações
+# Manual de Operações - Plataforma de Dados ONS
 
 ## Visão Geral
 
@@ -14,80 +14,80 @@ Este manual fornece procedimentos passo a passo para tarefas operacionais comuns
 6. [Gestão de Custos](#gestão-de-custos)
 7. [Operações de Segurança](#operações-de-segurança)
 
-## System Health Checks
+## Verificações de Saúde do Sistema
 
-### Daily Health Check
+### Verificação Diária de Saúde
 
-Run this comprehensive health check every morning:
+Execute esta verificação abrangente de saúde todas as manhãs:
 
 ```bash
 #!/bin/bash
-# Daily health check script
+# Script de verificação diária de saúde
 
-echo "=== ONS Data Platform Health Check ==="
-echo "Date: $(date)"
+echo "=== Verificação de Saúde da Plataforma de Dados ONS ==="
+echo "Data: $(date)"
 echo
 
-# 1. Check Lambda function health
-echo "1. Lambda Function Health:"
+# 1. Verificar saúde das funções Lambda
+echo "1. Saúde das Funções Lambda:"
 python scripts/rollback.py --action health-check \
-  --functions lambda_router structured_data_processor rag_query_processor timestream_loader
+  --functions lambda_router structured_data_processor rag_query_processor influxdb_loader
 
-# 2. Check API Gateway health
-echo "2. API Gateway Health:"
+# 2. Verificar saúde do API Gateway
+echo "2. Saúde do API Gateway:"
 curl -s -o /dev/null -w "%{http_code}" \
   "https://$(aws apigateway get-rest-apis --query 'items[?name==`ons-data-platform-api`].id' --output text).execute-api.us-east-1.amazonaws.com/prod/health"
 
-# 3. Check S3 bucket accessibility
-echo "3. S3 Bucket Health:"
-aws s3 ls s3://ons-data-platform-raw-prod/ > /dev/null && echo "✓ Raw bucket accessible" || echo "✗ Raw bucket error"
-aws s3 ls s3://ons-data-platform-processed-prod/ > /dev/null && echo "✓ Processed bucket accessible" || echo "✗ Processed bucket error"
+# 3. Verificar acessibilidade dos buckets S3
+echo "3. Saúde dos Buckets S3:"
+aws s3 ls s3://ons-data-platform-raw-prod/ > /dev/null && echo "✓ Bucket raw acessível" || echo "✗ Erro no bucket raw"
+aws s3 ls s3://ons-data-platform-processed-prod/ > /dev/null && echo "✓ Bucket processado acessível" || echo "✗ Erro no bucket processado"
 
-# 4. Check InfluxDB database
-echo "4. InfluxDB Database Health:"
+# 4. Verificar banco de dados InfluxDB
+echo "4. Saúde do Banco InfluxDB:"
 python scripts/validate_influxdb_performance.py --health-check-only
 
-# 5. Check recent processing activity
-echo "5. Recent Processing Activity:"
+# 5. Verificar atividade de processamento recente
+echo "5. Atividade de Processamento Recente:"
 aws logs filter-log-events \
   --log-group-name /aws/lambda/lambda_router \
   --start-time $(date -d '1 hour ago' +%s)000 \
   --filter-pattern "SUCCESS" \
   --query 'events[*].message' --output table
 
-echo "=== Health Check Complete ==="
+echo "=== Verificação de Saúde Completa ==="
 ```
 
-### Weekly Health Check
+### Verificação Semanal de Saúde
 
-Extended health check for weekly review:
+Verificação estendida para revisão semanal:
 
 ```bash
 #!/bin/bash
-# Weekly health check script
+# Script de verificação semanal de saúde
 
-echo "=== Weekly Health Review ==="
+echo "=== Revisão Semanal de Saúde ==="
 
-# 1. Check error rates over the past week
+# 1. Verificar taxas de erro da última semana
 aws logs filter-log-events \
   --log-group-name /aws/lambda/lambda_router \
   --start-time $(date -d '7 days ago' +%s)000 \
   --filter-pattern "ERROR" \
   --query 'length(events)' --output text
 
-# 2. Review cost trends
+# 2. Revisar tendências de custo
 aws ce get-cost-and-usage \
   --time-period Start=$(date -d '7 days ago' +%Y-%m-%d),End=$(date +%Y-%m-%d) \
   --granularity DAILY \
   --metrics BlendedCost \
   --group-by Type=DIMENSION,Key=SERVICE
 
-# 3. Check storage utilization
+# 3. Verificar utilização de armazenamento
 aws s3api list-objects-v2 \
   --bucket ons-data-platform-raw-prod \
   --query 'sum(Contents[].Size)' --output text
 
-# 4. Review security alerts
+# 4. Revisar alertas de segurança
 aws logs filter-log-events \
   --log-group-name /aws/lambda/lambda_router \
   --start-time $(date -d '7 days ago' +%s)000 \
@@ -95,62 +95,62 @@ aws logs filter-log-events \
   --query 'length(events)' --output text
 ```
 
-## Common Maintenance Tasks
+## Tarefas de Manutenção Comuns
 
-### 1. Update Lambda Function Code
+### 1. Atualizar Código das Funções Lambda
 
 ```bash
-# Update a specific Lambda function
+# Atualizar uma função Lambda específica
 cd src/lambda_router
 
-# Package the function
+# Empacotar a função
 zip -r lambda_router.zip . -x "tests/*" "*.pyc" "__pycache__/*"
 
-# Update function code
+# Atualizar código da função
 aws lambda update-function-code \
   --function-name lambda_router \
   --zip-file fileb://lambda_router.zip
 
-# Publish new version
+# Publicar nova versão
 VERSION=$(aws lambda publish-version \
   --function-name lambda_router \
-  --description "Manual update $(date)" \
+  --description "Atualização manual $(date)" \
   --query 'Version' --output text)
 
-echo "Published version: $VERSION"
+echo "Versão publicada: $VERSION"
 
-# Deploy with blue-green strategy
+# Implantar com estratégia blue-green
 python ../../scripts/deploy.py \
   --function-name lambda_router \
   --version $VERSION \
   --deployment-group lambda_router-deployment-group
 ```
 
-### 2. Scale InfluxDB Database
+### 2. Escalar Banco de Dados InfluxDB
 
 ```bash
-# Check current InfluxDB usage
+# Verificar uso atual do InfluxDB
 aws timestreaminfluxdb describe-db-instance \
   --identifier ons-influxdb-prod \
   --query 'DbInstance.[DbInstanceStatus,AllocatedStorage,DbInstanceClass]' --output table
 
-# Scale up instance if needed
+# Escalar instância se necessário
 aws timestreaminfluxdb modify-db-instance \
   --db-instance-identifier ons-influxdb-prod \
   --db-instance-class db.influx.large \
   --allocated-storage 200 \
   --apply-immediately
 
-# Update retention policies
+# Atualizar políticas de retenção
 python scripts/manage_influxdb_retention.py \
   --bucket energy_data \
   --retention-period 7y
 ```
 
-### 3. Clean Up Old Data
+### 3. Limpeza de Dados Antigos
 
 ```bash
-# Clean up old Lambda versions (keep last 5)
+# Limpar versões antigas do Lambda (manter últimas 5)
 FUNCTION_NAME="lambda_router"
 aws lambda list-versions-by-function \
   --function-name $FUNCTION_NAME \
@@ -161,7 +161,7 @@ aws lambda list-versions-by-function \
     --function-name $FUNCTION_NAME \
     --qualifier {}
 
-# Clean up old CloudWatch logs (older than retention period)
+# Limpar logs antigos do CloudWatch (mais antigos que período de retenção)
 aws logs describe-log-groups \
   --query 'logGroups[?retentionInDays==`null`].logGroupName' \
   --output text | \
@@ -170,10 +170,10 @@ aws logs describe-log-groups \
     --retention-in-days 30
 ```
 
-### 4. Update Feature Flags
+### 4. Atualizar Feature Flags
 
 ```bash
-# Enable a feature flag
+# Habilitar uma feature flag
 python scripts/deploy.py --action update-flag \
   --application-id $(terraform output -raw appconfig_application_id) \
   --environment-id $(terraform output -raw appconfig_production_environment_id) \
@@ -181,7 +181,7 @@ python scripts/deploy.py --action update-flag \
   --flag-name enable_new_api_endpoint \
   --enabled true
 
-# Check flag status
+# Verificar status da flag
 aws appconfig get-configuration \
   --application $(terraform output -raw appconfig_application_id) \
   --environment $(terraform output -raw appconfig_production_environment_id) \
@@ -189,18 +189,18 @@ aws appconfig get-configuration \
   --client-id operations-check
 ```
 
-## Troubleshooting Guides
+## Guias de Solução de Problemas
 
-### Issue: High Error Rate in Lambda Functions
+### Problema: Alta Taxa de Erro nas Funções Lambda
 
-**Symptoms:**
-- CloudWatch alarms firing
-- Increased error logs
-- API returning 5xx errors
+**Sintomas:**
+- Alarmes do CloudWatch disparando
+- Aumento nos logs de erro
+- API retornando erros 5xx
 
-**Investigation Steps:**
+**Passos de Investigação:**
 
-1. **Check recent deployments:**
+1. **Verificar implantações recentes:**
 ```bash
 aws codedeploy list-deployments \
   --application-name ons-data-platform-lambda-app \
@@ -208,7 +208,7 @@ aws codedeploy list-deployments \
   --max-items 5
 ```
 
-2. **Analyze error logs:**
+2. **Analisar logs de erro:**
 ```bash
 aws logs filter-log-events \
   --log-group-name /aws/lambda/lambda_router \
@@ -217,7 +217,7 @@ aws logs filter-log-events \
   --query 'events[*].[timestamp,message]' --output table
 ```
 
-3. **Check function metrics:**
+3. **Verificar métricas da função:**
 ```bash
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Lambda \
@@ -229,17 +229,17 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-**Resolution:**
+**Resolução:**
 
-1. **If recent deployment caused issues:**
+1. **Se implantação recente causou problemas:**
 ```bash
 python scripts/rollback.py --action rollback-function \
   --function-name lambda_router
 ```
 
-2. **If configuration issue:**
+2. **Se problema de configuração:**
 ```bash
-# Disable problematic feature flag
+# Desabilitar feature flag problemática
 python scripts/rollback.py --action rollback-flags \
   --application-id $(terraform output -raw appconfig_application_id) \
   --environment-id $(terraform output -raw appconfig_production_environment_id) \
@@ -247,117 +247,16 @@ python scripts/rollback.py --action rollback-flags \
   --flags enable_problematic_feature
 ```
 
-### Issue: S3 Processing Failures
+### Problema: Falhas de Escrita no InfluxDB
 
-**Symptoms:**
-- Files stuck in raw bucket
-- No processed files appearing
-- Step Functions failures
+**Sintomas:**
+- Dados não aparecendo no InfluxDB
+- Timeouts de conexão
+- Alta latência de escrita
 
-**Investigation Steps:**
+**Passos de Investigação:**
 
-1. **Check Step Functions executions:**
-```bash
-aws stepfunctions list-executions \
-  --state-machine-arn $(terraform output -raw step_function_arn) \
-  --status-filter FAILED \
-  --max-items 10
-```
-
-2. **Check EventBridge rules:**
-```bash
-aws events list-rules \
-  --name-prefix ons-data-platform \
-  --query 'Rules[*].[Name,State]' --output table
-```
-
-3. **Check S3 bucket notifications:**
-```bash
-aws s3api get-bucket-notification-configuration \
-  --bucket $(terraform output -raw s3_raw_bucket_name)
-```
-
-**Resolution:**
-
-1. **Reprocess failed files:**
-```bash
-# Get failed execution details
-EXECUTION_ARN=$(aws stepfunctions list-executions \
-  --state-machine-arn $(terraform output -raw step_function_arn) \
-  --status-filter FAILED \
-  --max-items 1 \
-  --query 'executions[0].executionArn' --output text)
-
-# Get input from failed execution
-aws stepfunctions describe-execution \
-  --execution-arn $EXECUTION_ARN \
-  --query 'input'
-
-# Restart execution with same input
-aws stepfunctions start-execution \
-  --state-machine-arn $(terraform output -raw step_function_arn) \
-  --input "$(aws stepfunctions describe-execution --execution-arn $EXECUTION_ARN --query 'input' --output text)"
-```
-
-### Issue: API Gateway Timeouts
-
-**Symptoms:**
-- 504 Gateway Timeout errors
-- Slow API responses
-- High latency metrics
-
-**Investigation Steps:**
-
-1. **Check API Gateway metrics:**
-```bash
-aws cloudwatch get-metric-statistics \
-  --namespace AWS/ApiGateway \
-  --metric-name Latency \
-  --dimensions Name=ApiName,Value=ons-data-platform-api \
-  --start-time $(date -d '1 hour ago' --iso-8601) \
-  --end-time $(date --iso-8601) \
-  --period 300 \
-  --statistics Average,Maximum
-```
-
-2. **Check Lambda duration:**
-```bash
-aws cloudwatch get-metric-statistics \
-  --namespace AWS/Lambda \
-  --metric-name Duration \
-  --dimensions Name=FunctionName,Value=rag_query_processor \
-  --start-time $(date -d '1 hour ago' --iso-8601) \
-  --end-time $(date --iso-8601) \
-  --period 300 \
-  --statistics Average,Maximum
-```
-
-**Resolution:**
-
-1. **Increase Lambda timeout:**
-```bash
-aws lambda update-function-configuration \
-  --function-name rag_query_processor \
-  --timeout 300
-```
-
-2. **Scale up Lambda memory:**
-```bash
-aws lambda update-function-configuration \
-  --function-name rag_query_processor \
-  --memory-size 1024
-```
-
-### Issue: InfluxDB Write Failures
-
-**Symptoms:**
-- Data not appearing in InfluxDB
-- Connection timeouts
-- High write latency
-
-**Investigation Steps:**
-
-1. **Check InfluxDB metrics:**
+1. **Verificar métricas do InfluxDB:**
 ```bash
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Timestream \
@@ -369,14 +268,14 @@ aws cloudwatch get-metric-statistics \
   --statistics Average,Maximum
 ```
 
-2. **Check database status:**
+2. **Verificar status do banco:**
 ```bash
 aws timestreaminfluxdb describe-db-instance \
   --identifier ons-influxdb-prod \
   --query 'DbInstance.DbInstanceStatus' --output text
 ```
 
-3. **Test connectivity:**
+3. **Testar conectividade:**
 ```bash
 python -c "
 from src.shared_utils.influxdb_client import InfluxDBHandler
@@ -385,11 +284,10 @@ print(handler.health_check())
 "
 ```
 
-**Resolution:**
+**Resolução:**
 
-1. **Implement batch writing with retry logic:**
+1. **Implementar escrita em lote com retry:**
 ```python
-# Update influxdb_loader to use optimized batch writes
 from src.shared_utils.influxdb_client import InfluxDBHandler
 import time
 
@@ -405,12 +303,12 @@ def batch_write_with_retry(points, max_retries=3):
                 raise
             wait_time = 2 ** attempt
             time.sleep(wait_time)
-            print(f"Write retry {attempt + 1}/{max_retries} after {wait_time}s")
+            print(f"Tentativa de escrita {attempt + 1}/{max_retries} após {wait_time}s")
     
     return False
 ```
 
-2. **Scale up InfluxDB instance:**
+2. **Escalar instância do InfluxDB:**
 ```bash
 aws timestreaminfluxdb modify-db-instance \
   --db-instance-identifier ons-influxdb-prod \
@@ -418,27 +316,27 @@ aws timestreaminfluxdb modify-db-instance \
   --apply-immediately
 ```
 
-## Emergency Procedures
+## Procedimentos de Emergência
 
-### Critical System Failure
+### Falha Crítica do Sistema
 
-**Immediate Actions (First 5 minutes):**
+**Ações Imediatas (Primeiros 5 minutos):**
 
-1. **Assess impact:**
+1. **Avaliar impacto:**
 ```bash
-# Check all critical components
+# Verificar todos os componentes críticos
 python scripts/rollback.py --action health-check \
-  --functions lambda_router structured_data_processor rag_query_processor timestream_loader
+  --functions lambda_router structured_data_processor rag_query_processor influxdb_loader timeseries_query_processor
 ```
 
-2. **Stop ongoing deployments:**
+2. **Parar implantações em andamento:**
 ```bash
-# List active deployments
+# Listar implantações ativas
 aws codedeploy list-deployments \
   --application-name ons-data-platform-lambda-app \
   --include-only-statuses InProgress
 
-# Stop all active deployments
+# Parar todas as implantações ativas
 for deployment in $(aws codedeploy list-deployments \
   --application-name ons-data-platform-lambda-app \
   --include-only-statuses InProgress \
@@ -447,9 +345,9 @@ for deployment in $(aws codedeploy list-deployments \
 done
 ```
 
-3. **Disable problematic features:**
+3. **Desabilitar recursos problemáticos:**
 ```bash
-# Disable all non-critical feature flags
+# Desabilitar todas as feature flags não críticas
 python scripts/rollback.py --action rollback-flags \
   --application-id $(terraform output -raw appconfig_application_id) \
   --environment-id $(terraform output -raw appconfig_production_environment_id) \
@@ -457,16 +355,16 @@ python scripts/rollback.py --action rollback-flags \
   --flags enable_new_api_endpoint enable_enhanced_processing
 ```
 
-### Data Loss Prevention
+### Prevenção de Perda de Dados
 
-**If data corruption is suspected:**
+**Se suspeita de corrupção de dados:**
 
-1. **Stop all processing:**
+1. **Parar todo processamento:**
 ```bash
-# Disable EventBridge rules
+# Desabilitar regras do EventBridge
 aws events disable-rule --name ons-data-platform-s3-processing-rule
 
-# Stop Step Functions executions
+# Parar execuções do Step Functions
 for execution in $(aws stepfunctions list-executions \
   --state-machine-arn $(terraform output -raw step_function_arn) \
   --status-filter RUNNING \
@@ -475,63 +373,37 @@ for execution in $(aws stepfunctions list-executions \
 done
 ```
 
-2. **Create data snapshots:**
+2. **Criar snapshots de dados:**
 ```bash
-# Snapshot S3 buckets
+# Snapshot dos buckets S3
 aws s3 sync s3://$(terraform output -raw s3_processed_bucket_name) \
   s3://$(terraform output -raw s3_processed_bucket_name)-backup-$(date +%Y%m%d) \
   --storage-class GLACIER
 ```
 
-3. **Verify data integrity:**
+3. **Verificar integridade dos dados:**
 ```bash
-# Check recent data quality
-aws timestream-query query \
-  --query-string "SELECT COUNT(*), MIN(time), MAX(time) FROM \"ons_energy_data\".\"generation_data\" WHERE time > ago(24h)"
+# Verificar qualidade dos dados recentes
+python -c "
+from src.shared_utils.influxdb_client import InfluxDBHandler
+handler = InfluxDBHandler()
+query = '''
+from(bucket: \"energy_data\")
+  |> range(start: -24h)
+  |> count()
+'''
+result = handler.query_flux(query)
+print(f'Registros nas últimas 24h: {len(result)}')
+"
 ```
 
-### Security Incident Response
+## Monitoramento de Performance
 
-**If security breach is suspected:**
+### Indicadores Chave de Performance (KPIs)
 
-1. **Immediate containment:**
+1. **Taxa de Processamento:**
 ```bash
-# Disable API access
-aws apigateway update-stage \
-  --rest-api-id $(aws apigateway get-rest-apis --query 'items[?name==`ons-data-platform-api`].id' --output text) \
-  --stage-name prod \
-  --patch-ops op=replace,path=/throttle/rateLimit,value=0
-```
-
-2. **Audit access:**
-```bash
-# Check recent API access
-aws logs filter-log-events \
-  --log-group-name API-Gateway-Execution-Logs_$(aws apigateway get-rest-apis --query 'items[?name==`ons-data-platform-api`].id' --output text)/prod \
-  --start-time $(date -d '24 hours ago' +%s)000 \
-  --filter-pattern "[timestamp, request_id, ip = \"ERROR\" || ip = \"WARN\"]"
-```
-
-3. **Rotate credentials:**
-```bash
-# Rotate API keys
-aws apigateway create-api-key \
-  --name ons-data-platform-emergency-key \
-  --description "Emergency replacement key"
-
-# Update usage plan
-aws apigateway update-usage-plan \
-  --usage-plan-id $(aws apigateway get-usage-plans --query 'items[0].id' --output text) \
-  --patch-ops op=add,path=/apiStages,value='[{"apiId":"'$(aws apigateway get-rest-apis --query 'items[?name==`ons-data-platform-api`].id' --output text)'","stage":"prod"}]'
-```
-
-## Performance Monitoring
-
-### Key Performance Indicators (KPIs)
-
-1. **Processing Throughput:**
-```bash
-# Files processed per hour
+# Arquivos processados por hora
 aws logs filter-log-events \
   --log-group-name /aws/lambda/lambda_router \
   --start-time $(date -d '1 hour ago' +%s)000 \
@@ -539,9 +411,9 @@ aws logs filter-log-events \
   --query 'length(events)'
 ```
 
-2. **API Response Time:**
+2. **Tempo de Resposta da API:**
 ```bash
-# Average API latency
+# Latência média da API
 aws cloudwatch get-metric-statistics \
   --namespace AWS/ApiGateway \
   --metric-name Latency \
@@ -552,9 +424,9 @@ aws cloudwatch get-metric-statistics \
   --statistics Average
 ```
 
-3. **Error Rates:**
+3. **Taxas de Erro:**
 ```bash
-# Lambda error rate
+# Taxa de erro do Lambda
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Lambda \
   --metric-name Errors \
@@ -565,32 +437,32 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-### Performance Optimization
+### Otimização de Performance
 
-1. **Lambda Cold Start Optimization:**
+1. **Otimização de Cold Start do Lambda:**
 ```bash
-# Enable provisioned concurrency for critical functions
+# Habilitar concorrência provisionada para funções críticas
 aws lambda put-provisioned-concurrency-config \
   --function-name lambda_router \
   --qualifier LIVE \
   --provisioned-concurrency-config ProvisionedConcurrencyConfigs=2
 ```
 
-2. **API Gateway Caching:**
+2. **Cache do API Gateway:**
 ```bash
-# Enable caching for GET endpoints
+# Habilitar cache para endpoints GET
 aws apigateway update-stage \
   --rest-api-id $(aws apigateway get-rest-apis --query 'items[?name==`ons-data-platform-api`].id' --output text) \
   --stage-name prod \
   --patch-ops op=replace,path=/cacheClusterEnabled,value=true
 ```
 
-## Cost Management
+## Gestão de Custos
 
-### Daily Cost Monitoring
+### Monitoramento Diário de Custos
 
 ```bash
-# Check daily costs
+# Verificar custos diários
 aws ce get-cost-and-usage \
   --time-period Start=$(date -d '1 day ago' +%Y-%m-%d),End=$(date +%Y-%m-%d) \
   --granularity DAILY \
@@ -600,12 +472,12 @@ aws ce get-cost-and-usage \
   --output table
 ```
 
-### Cost Optimization Actions
+### Ações de Otimização de Custos
 
-1. **Clean up unused resources:**
+1. **Limpar recursos não utilizados:**
 ```bash
-# Remove old Lambda versions
-for function in lambda_router structured_data_processor rag_query_processor timestream_loader; do
+# Remover versões antigas do Lambda
+for function in lambda_router structured_data_processor rag_query_processor influxdb_loader; do
   aws lambda list-versions-by-function \
     --function-name $function \
     --query 'Versions[?Version!=`$LATEST`].Version' \
@@ -617,85 +489,85 @@ for function in lambda_router structured_data_processor rag_query_processor time
 done
 ```
 
-2. **Optimize storage classes:**
+2. **Otimizar classes de armazenamento:**
 ```bash
-# Move old data to cheaper storage
+# Mover dados antigos para armazenamento mais barato
 aws s3api put-bucket-lifecycle-configuration \
   --bucket $(terraform output -raw s3_raw_bucket_name) \
   --lifecycle-configuration file://lifecycle-policy.json
 ```
 
-## Security Operations
+## Operações de Segurança
 
-### Daily Security Checks
+### Verificações Diárias de Segurança
 
 ```bash
-# Check for security alerts
+# Verificar alertas de segurança
 aws logs filter-log-events \
   --log-group-name /aws/lambda/lambda_router \
   --start-time $(date -d '24 hours ago' +%s)000 \
   --filter-pattern "SECURITY" \
   --query 'events[*].[timestamp,message]' --output table
 
-# Check IAM policy changes
+# Verificar mudanças nas políticas IAM
 aws cloudtrail lookup-events \
   --lookup-attributes AttributeKey=EventName,AttributeValue=PutUserPolicy \
   --start-time $(date -d '24 hours ago' --iso-8601) \
   --end-time $(date --iso-8601)
 ```
 
-### Security Hardening
+### Endurecimento de Segurança
 
-1. **Update security groups:**
+1. **Atualizar grupos de segurança:**
 ```bash
-# Review and tighten security group rules
+# Revisar e apertar regras dos grupos de segurança
 aws ec2 describe-security-groups \
   --filters Name=group-name,Values=ons-data-platform-* \
   --query 'SecurityGroups[*].[GroupName,IpPermissions[*].[IpProtocol,FromPort,ToPort,IpRanges[*].CidrIp]]' \
   --output table
 ```
 
-2. **Rotate access keys:**
+2. **Rotacionar chaves de acesso:**
 ```bash
-# List old access keys
+# Listar chaves de acesso antigas
 aws iam list-access-keys \
   --query 'AccessKeyMetadata[?Age>`90`].[AccessKeyId,CreateDate]' \
   --output table
 ```
 
-## Maintenance Windows
+## Janelas de Manutenção
 
-### Scheduled Maintenance Procedure
+### Procedimento de Manutenção Programada
 
-1. **Pre-maintenance (30 minutes before):**
+1. **Pré-manutenção (30 minutos antes):**
 ```bash
-# Notify users
+# Notificar usuários
 aws sns publish \
   --topic-arn $(terraform output -raw deployment_sns_topic_arn) \
-  --message "Scheduled maintenance starting in 30 minutes. API may be temporarily unavailable."
+  --message "Manutenção programada iniciando em 30 minutos. API pode ficar temporariamente indisponível."
 
-# Create backup
+# Criar backup
 aws s3 sync s3://$(terraform output -raw s3_processed_bucket_name) \
   s3://$(terraform output -raw s3_processed_bucket_name)-maintenance-backup-$(date +%Y%m%d)
 ```
 
-2. **During maintenance:**
+2. **Durante a manutenção:**
 ```bash
-# Enable maintenance mode
+# Habilitar modo de manutenção
 python scripts/rollback.py --action rollback-flags \
   --application-id $(terraform output -raw appconfig_application_id) \
   --environment-id $(terraform output -raw appconfig_production_environment_id) \
   --profile-id $(terraform output -raw appconfig_feature_flags_profile_id) \
   --flags enable_maintenance_mode
 
-# Perform maintenance tasks
+# Executar tarefas de manutenção
 terraform plan -var-file="environments/prod.tfvars"
 terraform apply -var-file="environments/prod.tfvars"
 ```
 
-3. **Post-maintenance:**
+3. **Pós-manutenção:**
 ```bash
-# Disable maintenance mode
+# Desabilitar modo de manutenção
 python scripts/deploy.py --action update-flag \
   --application-id $(terraform output -raw appconfig_application_id) \
   --environment-id $(terraform output -raw appconfig_production_environment_id) \
@@ -703,44 +575,44 @@ python scripts/deploy.py --action update-flag \
   --flag-name enable_maintenance_mode \
   --enabled false
 
-# Run health checks
+# Executar verificações de saúde
 python scripts/rollback.py --action health-check \
-  --functions lambda_router structured_data_processor rag_query_processor timestream_loader
+  --functions lambda_router structured_data_processor rag_query_processor influxdb_loader
 
-# Notify completion
+# Notificar conclusão
 aws sns publish \
   --topic-arn $(terraform output -raw deployment_sns_topic_arn) \
-  --message "Scheduled maintenance completed successfully. All systems operational."
+  --message "Manutenção programada concluída com sucesso. Todos os sistemas operacionais."
 ```
 
-## Contact Information
+## Informações de Contato
 
-### Escalation Matrix
+### Matriz de Escalação
 
-1. **Level 1 - Operations Team**
+1. **Nível 1 - Equipe de Operações**
    - Email: ops-team@company.com
    - Slack: #ops-alerts
-   - Phone: +1-555-OPS-TEAM
+   - Telefone: +55-11-XXXX-XXXX
 
-2. **Level 2 - Engineering Team**
+2. **Nível 2 - Equipe de Engenharia**
    - Email: engineering@company.com
    - Slack: #engineering-alerts
-   - Phone: +1-555-ENG-TEAM
+   - Telefone: +55-11-YYYY-YYYY
 
-3. **Level 3 - Architecture Team**
+3. **Nível 3 - Equipe de Arquitetura**
    - Email: architecture@company.com
    - Slack: #architecture-alerts
-   - Phone: +1-555-ARCH-TEAM
+   - Telefone: +55-11-ZZZZ-ZZZZ
 
-### Emergency Contacts
+### Contatos de Emergência
 
-- **Security Incidents**: security@company.com
-- **Data Privacy**: privacy@company.com
-- **Legal/Compliance**: legal@company.com
-- **Executive Escalation**: executives@company.com
+- **Incidentes de Segurança**: security@company.com
+- **Privacidade de Dados**: privacy@company.com
+- **Jurídico/Compliance**: legal@company.com
+- **Escalação Executiva**: executives@company.com
 
 ---
 
-**Last Updated**: $(date)
-**Version**: 1.0
-**Next Review**: $(date -d '+3 months')
+**Última Atualização**: $(date)
+**Versão**: 1.0
+**Próxima Revisão**: $(date -d '+3 months')

@@ -16,28 +16,10 @@ variable "project_name" {
   default     = "ons-data-platform"
 }
 
-variable "enable_deletion_protection" {
-  description = "Enable deletion protection for critical resources"
-  type        = bool
-  default     = false
-}
-
 variable "log_retention_days" {
   description = "CloudWatch log retention in days"
   type        = number
   default     = 30
-}
-
-variable "api_throttle_burst_limit" {
-  description = "API Gateway throttle burst limit"
-  type        = number
-  default     = 2000
-}
-
-variable "api_throttle_rate_limit" {
-  description = "API Gateway throttle rate limit"
-  type        = number
-  default     = 1000
 }
 
 variable "enable_cross_region_replication" {

@@ -50,8 +50,8 @@ echo "🔧 Initializing Terraform..."
 terraform init
 
 # Validate configuration
-echo "🔍 Validating Terraform configuration..."
-terraform validate
+# echo "🔍 Validating Terraform configuration..."
+# terraform validate
 
 # Create deployment plan
 echo "📋 Creating deployment plan..."

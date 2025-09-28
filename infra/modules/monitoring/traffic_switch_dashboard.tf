@@ -200,13 +200,7 @@ resource "aws_cloudwatch_metric_alarm" "traffic_switch_success_rate" {
   dimensions = {
     Environment = var.environment
   }
-
-  alarm_actions = [var.sns_topic_arn]
-
-  tags = {
-    Name        = "${var.project_name}-${var.environment}-traffic-switch-success-rate"
-    Environment = var.environment
-  }
+  alarm_actions = [aws_sns_topic.critical_alerts.arn]
 }
 
 resource "aws_cloudwatch_metric_alarm" "influxdb_vs_timestream_latency" {
@@ -253,12 +247,7 @@ resource "aws_cloudwatch_metric_alarm" "influxdb_vs_timestream_latency" {
   alarm_description  = "InfluxDB response time significantly higher than Timestream"
   treat_missing_data = "notBreaching"
 
-  alarm_actions = [var.sns_topic_arn]
-
-  tags = {
-    Name        = "${var.project_name}-${var.environment}-influxdb-latency-comparison"
-    Environment = var.environment
-  }
+  alarm_actions = [aws_sns_topic.critical_alerts.arn]
 }
 
 # Data source for current region

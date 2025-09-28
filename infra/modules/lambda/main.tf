@@ -599,5 +599,225 @@ resource "aws_cloudwatch_metric_alarm" "rag_processor_high_latency" {
   }
 }
 
-# CloudWatch Alarms for Timestream Loader - REMOVED
-# These alarms monitored the decommissioned timestream_loader function
+# Timeseries Query Processor Lambda Function
+resource "aws_lambda_function" "timeseries_query_processor" {
+  filename      = data.archive_file.timeseries_query_processor.output_path
+  function_name = "${var.project_name}-${var.environment}-timeseries-query-processor"
+  role          = aws_iam_role.timeseries_lambda_role.arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 300 # 5 minutes
+  memory_size   = 1024
+
+  source_code_hash = data.archive_file.timeseries_query_processor.output_base64sha256
+
+  layers = [aws_lambda_layer_version.shared_utils_layer.arn]
+
+  environment {
+    variables = {
+      INFLUXDB_URL               = var.influxdb_url
+      INFLUXDB_ORG               = var.influxdb_org
+      INFLUXDB_BUCKET            = var.influxdb_bucket
+      INFLUXDB_TOKEN_SECRET_NAME = var.influxdb_token_secret_name
+      MAX_QUERY_RESULTS          = "1000"
+      QUERY_TIMEOUT_SECONDS      = "30"
+      ENABLE_QUERY_CACHING       = "true"
+      CACHE_TTL_SECONDS          = "300"
+    }
+  }
+
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.influxdb_lambda_sg.id]
+  }
+
+  depends_on = [
+    aws_cloudwatch_log_group.timeseries_query_processor
+  ]
+
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-timeseries-query-processor"
+    Environment = var.environment
+    Purpose     = "Process time series queries against InfluxDB"
+  }
+}
+
+# Package Timeseries Query Processor Lambda
+data "archive_file" "timeseries_query_processor" {
+  type        = "zip"
+  source_dir  = "${path.root}/../src/timeseries_query_processor"
+  output_path = "${path.module}/timeseries_query_processor.zip"
+  excludes    = ["__pycache__", "*.pyc", "test_*.py", "README.md"]
+}
+
+# IAM role for Timeseries Query Processor
+resource "aws_iam_role" "timeseries_lambda_role" {
+  name = "${var.project_name}-${var.environment}-timeseries-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.project_name}-${var.environment}-timeseries-lambda-role"
+  }
+}
+
+# Basic execution policy for Timeseries Lambda
+resource "aws_iam_role_policy_attachment" "timeseries_lambda_basic_execution" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  role       = aws_iam_role.timeseries_lambda_role.name
+}
+
+# VPC execution policy for Timeseries Lambda
+resource "aws_iam_role_policy_attachment" "timeseries_lambda_vpc_execution" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+  role       = aws_iam_role.timeseries_lambda_role.name
+}
+
+# Secrets Manager access policy for Timeseries Lambda
+resource "aws_iam_role_policy" "timeseries_lambda_secrets_policy" {
+  name = "${var.project_name}-${var.environment}-timeseries-lambda-secrets-policy"
+  role = aws_iam_role.timeseries_lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          "arn:aws:secretsmanager:*:*:secret:${var.influxdb_token_secret_name}*"
+        ]
+      }
+    ]
+  })
+}
+
+# CloudWatch metrics policy for Timeseries Lambda
+resource "aws_iam_role_policy" "timeseries_lambda_cloudwatch_policy" {
+  name = "${var.project_name}-${var.environment}-timeseries-lambda-cloudwatch-policy"
+  role = aws_iam_role.timeseries_lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:PutMetricData"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "cloudwatch:namespace" = "ONS/TimeseriesProcessor"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# CloudWatch Log Group for Timeseries Query Processor
+resource "aws_cloudwatch_log_group" "timeseries_query_processor" {
+  name              = "/aws/lambda/${var.project_name}-${var.environment}-timeseries-query-processor"
+  retention_in_days = var.log_retention_days
+
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-timeseries-query-processor-logs"
+    Environment = var.environment
+  }
+}
+
+# CloudWatch Alarms for Timeseries Query Processor
+resource "aws_cloudwatch_metric_alarm" "timeseries_processor_errors" {
+  alarm_name          = "${var.project_name}-${var.environment}-timeseries-processor-errors"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "5"
+  alarm_description   = "This metric monitors timeseries processor errors"
+  alarm_actions       = [var.sns_topic_arn]
+
+  dimensions = {
+    FunctionName = aws_lambda_function.timeseries_query_processor.function_name
+  }
+
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-timeseries-processor-errors"
+    Environment = var.environment
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "timeseries_processor_duration" {
+  alarm_name          = "${var.project_name}-${var.environment}-timeseries-processor-duration"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "Duration"
+  namespace           = "AWS/Lambda"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "30000" # 30 seconds
+  alarm_description   = "This metric monitors timeseries processor duration"
+  alarm_actions       = [var.sns_topic_arn]
+
+  dimensions = {
+    FunctionName = aws_lambda_function.timeseries_query_processor.function_name
+  }
+
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-timeseries-processor-duration"
+    Environment = var.environment
+  }
+}
+
+# Custom CloudWatch Alarms for Timeseries-specific metrics
+resource "aws_cloudwatch_metric_alarm" "timeseries_processor_query_failures" {
+  alarm_name          = "${var.project_name}-${var.environment}-timeseries-query-failures"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "QueryFailure"
+  namespace           = "ONS/TimeseriesProcessor"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "10"
+  alarm_description   = "This metric monitors timeseries query failures"
+  alarm_actions       = [var.sns_topic_arn]
+
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-timeseries-query-failures"
+    Environment = var.environment
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "timeseries_processor_high_latency" {
+  alarm_name          = "${var.project_name}-${var.environment}-timeseries-high-latency"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "3"
+  metric_name         = "QueryLatency"
+  namespace           = "ONS/TimeseriesProcessor"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "5000" # 5 seconds
+  alarm_description   = "This metric monitors timeseries query latency"
+  alarm_actions       = [var.sns_topic_arn]
+
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-timeseries-high-latency"
+    Environment = var.environment
+  }
+}

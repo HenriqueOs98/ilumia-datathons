@@ -84,6 +84,27 @@ output "api_lambda_name" {
   value       = "placeholder-api"
 }
 
+# Timeseries Query Processor outputs
+output "timeseries_query_processor_arn" {
+  description = "ARN of the timeseries query processor Lambda function"
+  value       = aws_lambda_function.timeseries_query_processor.arn
+}
+
+output "timeseries_query_processor_name" {
+  description = "Name of the timeseries query processor Lambda function"
+  value       = aws_lambda_function.timeseries_query_processor.function_name
+}
+
+output "timeseries_query_processor_log_group" {
+  description = "CloudWatch log group for timeseries query processor"
+  value       = aws_cloudwatch_log_group.timeseries_query_processor.name
+}
+
+output "timeseries_lambda_role_arn" {
+  description = "ARN of the timeseries Lambda execution role"
+  value       = aws_iam_role.timeseries_lambda_role.arn
+}
+
 # Additional outputs for main module compatibility
 output "lambda_router_name" {
   description = "Name of the lambda router function"

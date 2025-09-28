@@ -60,3 +60,28 @@ variable "cost_anomaly_threshold" {
   type        = number
   default     = 50
 }
+
+# InfluxDB Monitoring Variables
+variable "influxdb_max_connections_threshold" {
+  description = "Maximum number of InfluxDB connections before alerting"
+  type        = number
+  default     = 100
+}
+
+variable "influxdb_daily_cost_threshold" {
+  description = "Daily cost threshold for InfluxDB in USD"
+  type        = number
+  default     = 50
+}
+
+variable "influxdb_storage_threshold_gb" {
+  description = "Storage usage threshold for InfluxDB in GB"
+  type        = number
+  default     = 80
+}
+
+variable "influxdb_monitor_lambda_arn" {
+  description = "ARN of the InfluxDB monitor Lambda function"
+  type        = string
+  default     = ""
+}

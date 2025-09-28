@@ -153,6 +153,71 @@ resource "aws_cloudwatch_dashboard" "ons_platform" {
           title   = "API Gateway Performance"
           period  = 300
         }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 12
+        width  = 12
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "ConnectionStatus", "Environment", var.environment],
+            [".", "HealthCheckResponseTime", ".", "."],
+            [".", "QueryExecutionTime", ".", ".", "QueryType", "simple_query"],
+            [".", ".", ".", ".", ".", "aggregation_query"],
+            [".", "WriteLatency", ".", "."]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.aws_region
+          title   = "InfluxDB Performance Metrics"
+          period  = 300
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 18
+        width  = 12
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "CPUUtilization", "Environment", var.environment],
+            [".", "MemoryUtilization", ".", "."],
+            [".", "DiskUtilization", ".", "."],
+            [".", "ActiveConnections", ".", "."]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.aws_region
+          title   = "InfluxDB Resource Utilization"
+          period  = 300
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 24
+        width  = 12
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "QueryThroughput", "Environment", var.environment, "QueryType", "simple_query"],
+            [".", ".", ".", ".", ".", "aggregation_query"],
+            [".", "WriteThroughput", ".", "."],
+            [".", "QueryErrors", ".", "."],
+            [".", "WriteErrors", ".", "."]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.aws_region
+          title   = "InfluxDB Throughput and Errors"
+          period  = 300
+        }
       }
     ]
   })
@@ -556,6 +621,259 @@ resource "aws_cloudwatch_metric_alarm" "high_lambda_cold_starts" {
   }
 }
 
+# Dedicated InfluxDB Monitoring Dashboard
+resource "aws_cloudwatch_dashboard" "influxdb_monitoring" {
+  dashboard_name = "${var.environment}-ons-influxdb-monitoring"
+
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type   = "metric"
+        x      = 0
+        y      = 0
+        width  = 8
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "ConnectionStatus", "Environment", var.environment]
+          ]
+          view    = "singleValue"
+          region  = var.aws_region
+          title   = "InfluxDB Connection Status"
+          period  = 300
+          stat    = "Average"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 8
+        y      = 0
+        width  = 8
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "HealthCheckResponseTime", "Environment", var.environment]
+          ]
+          view    = "timeSeries"
+          region  = var.aws_region
+          title   = "Health Check Response Time"
+          period  = 300
+          stat    = "Average"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 16
+        y      = 0
+        width  = 8
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "EstimatedDailyCost", "Environment", var.environment]
+          ]
+          view    = "singleValue"
+          region  = var.aws_region
+          title   = "Estimated Daily Cost (USD)"
+          period  = 86400
+          stat    = "Maximum"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 6
+        width  = 12
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "QueryExecutionTime", "Environment", var.environment, "QueryType", "simple_query"],
+            [".", ".", ".", ".", ".", "aggregation_query"],
+            [".", ".", ".", ".", ".", "complex_query"]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.aws_region
+          title   = "Query Execution Time by Type"
+          period  = 300
+          stat    = "Average"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 6
+        width  = 12
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "QueryThroughput", "Environment", var.environment, "QueryType", "simple_query"],
+            [".", ".", ".", ".", ".", "aggregation_query"],
+            [".", ".", ".", ".", ".", "complex_query"]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.aws_region
+          title   = "Query Throughput (Results/sec)"
+          period  = 300
+          stat    = "Average"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 12
+        width  = 12
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "WriteLatency", "Environment", var.environment],
+            ["ONS/InfluxDB", "WriteThroughput", "Environment", var.environment]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.aws_region
+          title   = "Write Performance"
+          period  = 300
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 12
+        width  = 12
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "QueryErrors", "Environment", var.environment],
+            [".", "WriteErrors", ".", "."]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          region  = var.aws_region
+          title   = "Error Rates"
+          period  = 300
+          stat    = "Sum"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 18
+        width  = 8
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "CPUUtilization", "Environment", var.environment]
+          ]
+          view    = "timeSeries"
+          region  = var.aws_region
+          title   = "CPU Utilization (%)"
+          period  = 300
+          stat    = "Average"
+          yAxis = {
+            left = {
+              min = 0
+              max = 100
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 8
+        y      = 18
+        width  = 8
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "MemoryUtilization", "Environment", var.environment]
+          ]
+          view    = "timeSeries"
+          region  = var.aws_region
+          title   = "Memory Utilization (%)"
+          period  = 300
+          stat    = "Average"
+          yAxis = {
+            left = {
+              min = 0
+              max = 100
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 16
+        y      = 18
+        width  = 8
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "DiskUtilization", "Environment", var.environment]
+          ]
+          view    = "timeSeries"
+          region  = var.aws_region
+          title   = "Disk Utilization (%)"
+          period  = 300
+          stat    = "Average"
+          yAxis = {
+            left = {
+              min = 0
+              max = 100
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 24
+        width  = 12
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "ActiveConnections", "Environment", var.environment]
+          ]
+          view    = "timeSeries"
+          region  = var.aws_region
+          title   = "Active Connections"
+          period  = 300
+          stat    = "Average"
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 24
+        width  = 12
+        height = 6
+
+        properties = {
+          metrics = [
+            ["ONS/InfluxDB", "StorageUsage", "Environment", var.environment]
+          ]
+          view    = "timeSeries"
+          region  = var.aws_region
+          title   = "Storage Usage (GB)"
+          period  = 86400
+          stat    = "Maximum"
+        }
+      }
+    ]
+  })
+}
+
 # Resource Utilization Monitoring Dashboard
 resource "aws_cloudwatch_dashboard" "cost_optimization" {
   dashboard_name = "${var.environment}-ons-cost-optimization"
@@ -611,19 +929,412 @@ resource "aws_cloudwatch_dashboard" "cost_optimization" {
 
         properties = {
           metrics = [
-            ["AWS/Timestream", "UserRecordsIngested", "DatabaseName", "${var.environment}-ons-energy-data"],
-            [".", "SystemRecordsIngested", ".", "."],
-            [".", "MagneticStoreRejectedRecordCount", ".", "."]
+            ["ONS/InfluxDB", "EstimatedDailyCost", "Environment", var.environment],
+            [".", "StorageUsage", ".", "."]
           ]
           view    = "timeSeries"
           stacked = false
           region  = var.aws_region
-          title   = "Timestream Utilization"
-          period  = 300
+          title   = "InfluxDB Cost and Storage"
+          period  = 86400
         }
       }
     ]
   })
+}
+
+# InfluxDB Monitoring Resources
+# CloudWatch Log Group for InfluxDB Monitor Lambda
+resource "aws_cloudwatch_log_group" "influxdb_monitor" {
+  name              = "/aws/lambda/${var.environment}-ons-influxdb-monitor"
+  retention_in_days = var.log_retention_days
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitor"
+  }
+}
+
+# InfluxDB Connectivity Alarms
+resource "aws_cloudwatch_metric_alarm" "influxdb_connection_status" {
+  alarm_name          = "${var.environment}-influxdb-connection-status"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "ConnectionStatus"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "1"
+  alarm_description   = "InfluxDB connection is down"
+  alarm_actions       = [aws_sns_topic.critical_alerts.arn]
+  ok_actions          = [aws_sns_topic.critical_alerts.arn]
+  treat_missing_data  = "breaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "influxdb_health_check_latency" {
+  alarm_name          = "${var.environment}-influxdb-health-check-latency"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "3"
+  metric_name         = "HealthCheckResponseTime"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "5000" # 5 seconds
+  alarm_description   = "InfluxDB health check response time is high"
+  alarm_actions       = [aws_sns_topic.warning_alerts.arn]
+  ok_actions          = [aws_sns_topic.warning_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+# InfluxDB Performance Alarms
+resource "aws_cloudwatch_metric_alarm" "influxdb_query_latency_simple" {
+  alarm_name          = "${var.environment}-influxdb-query-latency-simple"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "3"
+  metric_name         = "QueryExecutionTime"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "2000" # 2 seconds
+  alarm_description   = "InfluxDB simple query latency is high"
+  alarm_actions       = [aws_sns_topic.warning_alerts.arn]
+  ok_actions          = [aws_sns_topic.warning_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+    QueryType   = "simple_query"
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "influxdb_query_latency_complex" {
+  alarm_name          = "${var.environment}-influxdb-query-latency-complex"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "QueryExecutionTime"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "30000" # 30 seconds
+  alarm_description   = "InfluxDB complex query latency is high"
+  alarm_actions       = [aws_sns_topic.critical_alerts.arn]
+  ok_actions          = [aws_sns_topic.critical_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+    QueryType   = "complex_query"
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "influxdb_write_latency" {
+  alarm_name          = "${var.environment}-influxdb-write-latency"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "3"
+  metric_name         = "WriteLatency"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "5000" # 5 seconds
+  alarm_description   = "InfluxDB write latency is high"
+  alarm_actions       = [aws_sns_topic.warning_alerts.arn]
+  ok_actions          = [aws_sns_topic.warning_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "influxdb_write_throughput_low" {
+  alarm_name          = "${var.environment}-influxdb-write-throughput-low"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "3"
+  metric_name         = "WriteThroughput"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "10" # 10 points per second
+  alarm_description   = "InfluxDB write throughput is unusually low"
+  alarm_actions       = [aws_sns_topic.warning_alerts.arn]
+  ok_actions          = [aws_sns_topic.warning_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+# InfluxDB Error Rate Alarms
+resource "aws_cloudwatch_metric_alarm" "influxdb_query_errors" {
+  alarm_name          = "${var.environment}-influxdb-query-errors"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "QueryErrors"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "5"
+  alarm_description   = "High number of InfluxDB query errors"
+  alarm_actions       = [aws_sns_topic.critical_alerts.arn]
+  ok_actions          = [aws_sns_topic.critical_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "influxdb_write_errors" {
+  alarm_name          = "${var.environment}-influxdb-write-errors"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "WriteErrors"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "1"
+  alarm_description   = "InfluxDB write errors detected"
+  alarm_actions       = [aws_sns_topic.critical_alerts.arn]
+  ok_actions          = [aws_sns_topic.critical_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+# InfluxDB Resource Utilization Alarms
+resource "aws_cloudwatch_metric_alarm" "influxdb_cpu_utilization" {
+  alarm_name          = "${var.environment}-influxdb-cpu-utilization"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "3"
+  metric_name         = "CPUUtilization"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "80"
+  alarm_description   = "InfluxDB CPU utilization is high"
+  alarm_actions       = [aws_sns_topic.warning_alerts.arn]
+  ok_actions          = [aws_sns_topic.warning_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "influxdb_memory_utilization" {
+  alarm_name          = "${var.environment}-influxdb-memory-utilization"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "3"
+  metric_name         = "MemoryUtilization"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "85"
+  alarm_description   = "InfluxDB memory utilization is high"
+  alarm_actions       = [aws_sns_topic.critical_alerts.arn]
+  ok_actions          = [aws_sns_topic.critical_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "influxdb_disk_utilization" {
+  alarm_name          = "${var.environment}-influxdb-disk-utilization"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "DiskUtilization"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "90"
+  alarm_description   = "InfluxDB disk utilization is critically high"
+  alarm_actions       = [aws_sns_topic.critical_alerts.arn]
+  ok_actions          = [aws_sns_topic.critical_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "influxdb_active_connections" {
+  alarm_name          = "${var.environment}-influxdb-active-connections"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "ActiveConnections"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = var.influxdb_max_connections_threshold
+  alarm_description   = "InfluxDB has too many active connections"
+  alarm_actions       = [aws_sns_topic.warning_alerts.arn]
+  ok_actions          = [aws_sns_topic.warning_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+# InfluxDB Cost Monitoring Alarms
+resource "aws_cloudwatch_metric_alarm" "influxdb_daily_cost_high" {
+  alarm_name          = "${var.environment}-influxdb-daily-cost-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "EstimatedDailyCost"
+  namespace           = "ONS/InfluxDB"
+  period              = "86400" # Daily
+  statistic           = "Maximum"
+  threshold           = var.influxdb_daily_cost_threshold
+  alarm_description   = "InfluxDB daily cost is higher than expected"
+  alarm_actions       = [aws_sns_topic.warning_alerts.arn]
+  ok_actions          = [aws_sns_topic.warning_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+# InfluxDB Storage Growth Alarm
+resource "aws_cloudwatch_metric_alarm" "influxdb_storage_growth" {
+  alarm_name          = "${var.environment}-influxdb-storage-growth"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "StorageUsage"
+  namespace           = "ONS/InfluxDB"
+  period              = "86400" # Daily
+  statistic           = "Maximum"
+  threshold           = var.influxdb_storage_threshold_gb
+  alarm_description   = "InfluxDB storage usage is approaching limits"
+  alarm_actions       = [aws_sns_topic.warning_alerts.arn]
+  ok_actions          = [aws_sns_topic.warning_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+# Composite Alarm for InfluxDB Overall Health
+resource "aws_cloudwatch_composite_alarm" "influxdb_overall_health" {
+  alarm_name        = "${var.environment}-influxdb-overall-health"
+  alarm_description = "Composite alarm for overall InfluxDB health status"
+  
+  alarm_rule = join(" OR ", [
+    "ALARM(${aws_cloudwatch_metric_alarm.influxdb_connection_status.alarm_name})",
+    "ALARM(${aws_cloudwatch_metric_alarm.influxdb_memory_utilization.alarm_name})",
+    "ALARM(${aws_cloudwatch_metric_alarm.influxdb_disk_utilization.alarm_name})",
+    "ALARM(${aws_cloudwatch_metric_alarm.influxdb_write_errors.alarm_name})",
+    "ALARM(${aws_cloudwatch_metric_alarm.influxdb_query_errors.alarm_name})"
+  ])
+
+  alarm_actions = [aws_sns_topic.critical_alerts.arn]
+  ok_actions    = [aws_sns_topic.critical_alerts.arn]
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
 }
 
 # Lambda Function for Cost Optimization Recommendations
@@ -744,4 +1455,101 @@ resource "aws_lambda_permission" "allow_eventbridge_cost_optimizer" {
   function_name = aws_lambda_function.cost_optimizer.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.cost_optimization_schedule.arn
+}
+
+# EventBridge Rules for InfluxDB Monitoring
+resource "aws_cloudwatch_event_rule" "influxdb_monitor_schedule" {
+  count               = var.influxdb_monitor_lambda_arn != "" ? 1 : 0
+  name                = "${var.environment}-influxdb-monitor-schedule"
+  description         = "Trigger InfluxDB monitoring every 5 minutes"
+  schedule_expression = "rate(5 minutes)"
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+resource "aws_cloudwatch_event_target" "influxdb_monitor_target" {
+  count     = var.influxdb_monitor_lambda_arn != "" ? 1 : 0
+  rule      = aws_cloudwatch_event_rule.influxdb_monitor_schedule[0].name
+  target_id = "InfluxDBMonitorTarget"
+  arn       = var.influxdb_monitor_lambda_arn
+}
+
+resource "aws_lambda_permission" "allow_eventbridge_influxdb_monitor" {
+  count         = var.influxdb_monitor_lambda_arn != "" ? 1 : 0
+  statement_id  = "AllowExecutionFromEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = split(":", var.influxdb_monitor_lambda_arn)[6]
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.influxdb_monitor_schedule[0].arn
+}
+
+# SNS Topic for InfluxDB-specific alerts
+resource "aws_sns_topic" "influxdb_alerts" {
+  name = "${var.environment}-ons-influxdb-alerts"
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-monitoring"
+  }
+}
+
+resource "aws_sns_topic_subscription" "influxdb_alert_email" {
+  count     = length(var.critical_alert_emails)
+  topic_arn = aws_sns_topic.influxdb_alerts.arn
+  protocol  = "email"
+  endpoint  = var.critical_alert_emails[count.index]
+}
+
+# Auto-scaling based on InfluxDB metrics (if supported)
+resource "aws_cloudwatch_metric_alarm" "influxdb_scale_up_cpu" {
+  alarm_name          = "${var.environment}-influxdb-scale-up-cpu"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "70"
+  alarm_description   = "Scale up InfluxDB when CPU utilization is high"
+  alarm_actions       = [aws_sns_topic.influxdb_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-autoscaling"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "influxdb_scale_down_cpu" {
+  alarm_name          = "${var.environment}-influxdb-scale-down-cpu"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "5"
+  metric_name         = "CPUUtilization"
+  namespace           = "ONS/InfluxDB"
+  period              = "300"
+  statistic           = "Average"
+  threshold           = "20"
+  alarm_description   = "Scale down InfluxDB when CPU utilization is low"
+  alarm_actions       = [aws_sns_topic.influxdb_alerts.arn]
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    Environment = var.environment
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ons-data-platform"
+    Component   = "influxdb-autoscaling"
+  }
 }

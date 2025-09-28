@@ -59,15 +59,15 @@
     - Add rollback capabilities and migration status tracking
     - _Requirements: 2.1, 2.2, 2.3_
 
-- [ ] 5. Implement query translation and API updates
-  - [ ] 5.1 Create natural language to InfluxDB query translator
+- [-] 5. Implement query translation and API updates
+  - [x] 5.1 Create natural language to InfluxDB query translator
     - Create src/shared_utils/query_translator.py with QueryTranslator class
     - Implement Flux and InfluxQL template support for energy data queries
     - Add parameter extraction and query generation logic
     - Create unit tests for query translation functionality
     - _Requirements: 4.1, 4.3, 8.3, 8.4_
 
-  - [ ] 5.2 Create time series query processor Lambda
+  - [-] 5.2 Create time series query processor Lambda
     - Create src/timeseries_query_processor/lambda_function.py
     - Implement InfluxDB query execution with proper error handling
     - Add query performance monitoring and result caching

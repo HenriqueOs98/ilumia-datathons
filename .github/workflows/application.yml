@@ -24,9 +24,9 @@ jobs:
       lambda-router: ${{ steps.changes.outputs.lambda-router }}
       structured-data-processor: ${{ steps.changes.outputs.structured-data-processor }}
       rag-query-processor: ${{ steps.changes.outputs.rag-query-processor }}
-      timestream-loader: ${{ steps.changes.outputs.timestream-loader }}
       cost-optimizer: ${{ steps.changes.outputs.cost-optimizer }}
       batch-pdf-processor: ${{ steps.changes.outputs.batch-pdf-processor }}
+      influxdb-loader: ${{ steps.changes.outputs.influxdb-loader }}
       shared-utils: ${{ steps.changes.outputs.shared-utils }}
       any-lambda: ${{ steps.changes.outputs.any-lambda }}
     
@@ -45,8 +45,8 @@ jobs:
             - 'src/structured_data_processor/**'
           rag-query-processor:
             - 'src/rag_query_processor/**'
-          timestream-loader:
-            - 'src/timestream_loader/**'
+          influxdb-loader:
+            - 'src/influxdb_loader/**'
           cost-optimizer:
             - 'src/cost_optimizer/**'
           batch-pdf-processor:
@@ -57,7 +57,7 @@ jobs:
             - 'src/lambda_router/**'
             - 'src/structured_data_processor/**'
             - 'src/rag_query_processor/**'
-            - 'src/timestream_loader/**'
+            - 'src/influxdb_loader/**'
             - 'src/cost_optimizer/**'
 
   test-shared-utils:
@@ -296,11 +296,11 @@ jobs:
         file: src/rag_query_processor/coverage.xml
         flags: rag-query-processor
 
-  test-timestream-loader:
-    name: Test Timestream Loader
+  test-influxdb-loader:
+    name: Test InfluxDB Loader
     runs-on: ubuntu-latest
     needs: detect-changes
-    if: needs.detect-changes.outputs.timestream-loader == 'true' || needs.detect-changes.outputs.shared-utils == 'true'
+    if: needs.detect-changes.outputs.influxdb-loader == 'true' || needs.detect-changes.outputs.shared-utils == 'true'
     
     steps:
     - name: Checkout code
@@ -314,20 +314,21 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        cd src/timestream_loader
+        cd src/influxdb_loader
         pip install -r requirements.txt
         pip install pytest pytest-cov moto
     
     - name: Run tests
       run: |
-        cd src/timestream_loader
+        cd src/influxdb_loader
         python -m pytest test_lambda_function.py --cov=. --cov-report=xml --cov-report=term-missing
     
     - name: Upload coverage
       uses: codecov/codecov-action@v3
       with:
-        file: src/timestream_loader/coverage.xml
-        flags: timestream-loader
+        file: src/influxdb_loader/coverage.xml
+        flags: influxdb-loader
+
 
   test-cost-optimizer:
     name: Test Cost Optimizer
@@ -486,9 +487,9 @@ def test_lambda_handler():
           - function: rag-query-processor
             path: src/rag_query_processor
             needs_test: test-rag-query-processor
-          - function: timestream-loader
-            path: src/timestream_loader
-            needs_test: test-timestream-loader
+          - function: influxdb-loader
+            path: src/influxdb_loader
+            needs_test: test-influxdb-loader
           - function: cost-optimizer
             path: src/cost_optimizer
             needs_test: test-cost-optimizer
@@ -574,9 +575,15 @@ def test_lambda_handler():
       run: |
         cd infra
         terraform init
-        terraform plan -var="environment=prod" -var="aws_region=${{ env.AWS_REGION }}" -detailed-exitcode
+        
+        # Run plan and capture output
+        PLAN_OUTPUT=$(terraform plan -var="environment=prod" -var="aws_region=${{ env.AWS_REGION }}" -detailed-exitcode 2>&1)
         PLAN_EXIT_CODE=$?
         
+        # Output the plan
+        echo "$PLAN_OUTPUT"
+        
+        # Check the exit code
         if [ $PLAN_EXIT_CODE -eq 2 ]; then
           echo "::warning::Infrastructure drift detected. Consider running terraform apply."
         elif [ $PLAN_EXIT_CODE -eq 1 ]; then
@@ -631,7 +638,7 @@ def test_lambda_handler():
                 'ons-data-platform-prod-lambda-router',
                 'ons-data-platform-prod-structured-data-processor',
                 'ons-data-platform-prod-rag-query-processor',
-                'ons-data-platform-prod-timestream-loader',
+                'ons-data-platform-prod-influxdb-loader',
                 'ons-data-platform-prod-cost-optimizer'
             ]
             
@@ -713,7 +720,7 @@ def test_lambda_handler():
           "ons-data-platform-prod-lambda-router"
           "ons-data-platform-prod-structured-data-processor"
           "ons-data-platform-prod-rag-query-processor"
-          "ons-data-platform-prod-timestream-loader"
+          "ons-data-platform-prod-influxdb-loader"
           "ons-data-platform-prod-cost-optimizer"
         )
         

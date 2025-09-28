@@ -1,0 +1,79 @@
+# Test Dependencies for ONS Data Platform
+
+# Core testing framework
+pytest>=8.4.2
+pytest-cov>=4.0.0
+pytest-xdist>=3.3.1
+pytest-mock>=3.12.0
+pytest-timeout>=2.2.0
+pytest-asyncio>=0.23.0
+pytest-benchmark>=4.0.0
+
+# AWS mocking and testing
+moto[all]>=5.1.13
+boto3>=1.40.40
+botocore>=1.33.40
+
+# Data processing and analysis testing
+pandas>=2.1.0
+numpy>=1.24.0
+pyarrow>=14.0.0
+
+# Performance and load testing
+locust>=2.17.0
+psutil>=5.9.0
+
+# Code quality and linting
+flake8>=6.0.0
+black>=23.0.0
+isort>=5.12.0
+mypy>=1.7.0
+
+# Security testing
+bandit>=1.7.5
+safety>=2.3.0
+
+# Documentation testing
+sphinx>=7.1.0
+sphinx-rtd-theme>=1.3.0
+
+# Additional testing utilities
+factory-boy>=3.3.0
+faker>=20.1.0
+freezegun>=1.2.2
+responses>=0.24.0
+httpx>=0.25.0
+
+# Chaos engineering
+chaostoolkit>=1.17.0
+chaostoolkit-aws>=0.22.0
+
+# Performance monitoring
+memory-profiler>=0.61.0
+line-profiler>=4.1.0
+
+# Test reporting
+pytest-html>=4.1.0
+pytest-json-report>=1.5.0
+allure-pytest>=2.13.0
+
+# Database testing (for integration tests)
+sqlalchemy>=2.0.0
+alembic>=1.12.0
+
+# API testing
+requests>=2.31.0
+httpretty>=1.1.4
+
+# Parallel testing
+pytest-parallel>=0.1.1
+
+# Test data generation
+mimesis>=11.1.0
+hypothesis>=6.88.0
+
+# Container testing
+testcontainers>=3.7.0
+
+# Time manipulation for testing
+python-dateutil>=2.8.2

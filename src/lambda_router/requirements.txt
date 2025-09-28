@@ -1,0 +1,5 @@
+# Lambda Router Function Dependencies
+# Minimal dependencies for routing logic
+
+boto3==1.34.0
+botocore==1.34.0

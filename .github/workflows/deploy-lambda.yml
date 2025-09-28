@@ -1,0 +1,254 @@
+name: Deploy Lambda Functions with Blue-Green Deployment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+  workflow_dispatch:
+    inputs:
+      function_name:
+        description: 'Lambda function to deploy'
+        required: true
+        type: choice
+        options:
+          - lambda_router
+          - structured_data_processor
+          - rag_query_processor
+          - timestream_loader
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - development
+          - production
+        default: development
+
+env:
+  AWS_REGION: us-east-1
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      lambda_router: ${{ steps.changes.outputs.lambda_router }}
+      structured_data_processor: ${{ steps.changes.outputs.structured_data_processor }}
+      rag_query_processor: ${{ steps.changes.outputs.rag_query_processor }}
+      timestream_loader: ${{ steps.changes.outputs.timestream_loader }}
+      batch_pdf_processor: ${{ steps.changes.outputs.batch_pdf_processor }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            lambda_router:
+              - 'src/lambda_router/**'
+            structured_data_processor:
+              - 'src/structured_data_processor/**'
+            rag_query_processor:
+              - 'src/rag_query_processor/**'
+            timestream_loader:
+              - 'src/timestream_loader/**'
+            batch_pdf_processor:
+              - 'src/batch_pdf_processor/**'
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.lambda_router == 'true' ||
+      needs.detect-changes.outputs.structured_data_processor == 'true' ||
+      needs.detect-changes.outputs.rag_query_processor == 'true' ||
+      needs.detect-changes.outputs.timestream_loader == 'true' ||
+      needs.detect-changes.outputs.batch_pdf_processor == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Snyk Security Scan
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+          
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v2
+        with:
+          languages: python
+          
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
+  test:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, security-scan]
+    strategy:
+      matrix:
+        function: [lambda_router, structured_data_processor, rag_query_processor, timestream_loader]
+    if: needs.detect-changes.outputs[matrix.function] == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov moto boto3
+          if [ -f src/${{ matrix.function }}/requirements.txt ]; then
+            pip install -r src/${{ matrix.function }}/requirements.txt
+          fi
+          
+      - name: Run tests
+        run: |
+          cd src/${{ matrix.function }}
+          python -m pytest test_*.py -v --cov=. --cov-report=xml
+          
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: src/${{ matrix.function }}/coverage.xml
+          flags: ${{ matrix.function }}
+
+  build-and-package:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, test]
+    strategy:
+      matrix:
+        function: [lambda_router, structured_data_processor, rag_query_processor, timestream_loader]
+    if: needs.detect-changes.outputs[matrix.function] == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Package Lambda function
+        run: |
+          cd src/${{ matrix.function }}
+          mkdir -p package
+          pip install -r requirements.txt -t package/
+          cp *.py package/
+          cd package
+          zip -r ../${{ matrix.function }}.zip .
+          
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Update Lambda function code
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ matrix.function }} \
+            --zip-file fileb://src/${{ matrix.function }}/${{ matrix.function }}.zip
+            
+      - name: Publish new version
+        id: publish
+        run: |
+          VERSION=$(aws lambda publish-version \
+            --function-name ${{ matrix.function }} \
+            --description "Deployed from commit ${{ github.sha }}" \
+            --query 'Version' --output text)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Store version for deployment
+        run: |
+          echo "${{ steps.publish.outputs.version }}" > ${{ matrix.function }}-version.txt
+          
+      - name: Upload version artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.function }}-version
+          path: ${{ matrix.function }}-version.txt
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-package]
+    strategy:
+      matrix:
+        function: [lambda_router, structured_data_processor, rag_query_processor, timestream_loader]
+    if: needs.detect-changes.outputs[matrix.function] == 'true'
+    environment: ${{ github.event.inputs.environment || 'development' }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install deployment dependencies
+        run: |
+          pip install boto3
+          
+      - name: Download version artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ matrix.function }}-version
+          
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Deploy with blue-green strategy
+        run: |
+          VERSION=$(cat ${{ matrix.function }}-version.txt)
+          python scripts/deploy.py \
+            --function-name ${{ matrix.function }} \
+            --version $VERSION \
+            --deployment-group ${{ matrix.function }}-deployment-group \
+            --canary-percentage 10 \
+            --rollback-threshold 5 \
+            --region ${{ env.AWS_REGION }}
+            
+      - name: Update feature flags (production only)
+        if: github.event.inputs.environment == 'production'
+        run: |
+          python -c "
+          import boto3
+          import json
+          
+          appconfig = boto3.client('appconfig', region_name='${{ env.AWS_REGION }}')
+          
+          # Enable feature flag for new deployment
+          appconfig.start_deployment(
+              ApplicationId='${{ secrets.APPCONFIG_APPLICATION_ID }}',
+              EnvironmentId='${{ secrets.APPCONFIG_PRODUCTION_ENV_ID }}',
+              DeploymentStrategyId='${{ secrets.APPCONFIG_CANARY_STRATEGY_ID }}',
+              ConfigurationProfileId='${{ secrets.APPCONFIG_FEATURE_FLAGS_PROFILE_ID }}',
+              ConfigurationVersion='1',
+              Description='Enable feature flag for ${{ matrix.function }} deployment'
+          )
+          "
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always()
+    steps:
+      - name: Notify deployment status
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          text: |
+            Deployment Status: ${{ job.status }}
+            Functions: ${{ join(needs.detect-changes.outputs.*, ', ') }}
+            Environment: ${{ github.event.inputs.environment || 'development' }}
+            Commit: ${{ github.sha }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

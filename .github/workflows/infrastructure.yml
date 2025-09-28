@@ -1,0 +1,568 @@
+name: Infrastructure Deployment
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infrastructure.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infrastructure.yml'
+
+env:
+  TF_VERSION: '1.6.0'
+  AWS_REGION: 'us-east-1'
+  TF_VAR_region: 'us-east-1'
+
+jobs:
+  detect-infrastructure-changes:
+    name: Detect Infrastructure Changes
+    runs-on: ubuntu-latest
+    outputs:
+      modules-changed: ${{ steps.changes.outputs.modules }}
+      main-config-changed: ${{ steps.changes.outputs.main-config }}
+      api-gateway-changed: ${{ steps.changes.outputs.api-gateway }}
+      eventbridge-changed: ${{ steps.changes.outputs.eventbridge }}
+      knowledge-base-changed: ${{ steps.changes.outputs.knowledge-base }}
+      lambda-changed: ${{ steps.changes.outputs.lambda }}
+      monitoring-changed: ${{ steps.changes.outputs.monitoring }}
+      s3-changed: ${{ steps.changes.outputs.s3 }}
+      step-functions-changed: ${{ steps.changes.outputs.step-functions }}
+      timestream-changed: ${{ steps.changes.outputs.timestream }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Detect infrastructure changes
+      uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          modules:
+            - 'infra/modules/**'
+          main-config:
+            - 'infra/*.tf'
+            - 'infra/variables.tf'
+            - 'infra/outputs.tf'
+          api-gateway:
+            - 'infra/modules/api_gateway/**'
+          eventbridge:
+            - 'infra/modules/eventbridge/**'
+          knowledge-base:
+            - 'infra/modules/knowledge_base/**'
+          lambda:
+            - 'infra/modules/lambda/**'
+          monitoring:
+            - 'infra/modules/monitoring/**'
+          s3:
+            - 'infra/modules/s3/**'
+          step-functions:
+            - 'infra/modules/step_functions/**'
+          timestream:
+            - 'infra/modules/timestream/**'
+
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    needs: detect-infrastructure-changes
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+    
+    - name: Terraform Format Check
+      run: |
+        terraform fmt -check -recursive
+        if [ $? -ne 0 ]; then
+          echo "::error::Terraform files are not properly formatted. Run 'terraform fmt -recursive' to fix."
+          exit 1
+        fi
+      working-directory: infra
+    
+    - name: Terraform Init (syntax check)
+      run: terraform init -backend=false
+      working-directory: infra
+    
+    - name: Terraform Validate
+      run: terraform validate
+      working-directory: infra
+    
+    - name: Validate module dependencies
+      run: |
+        # Check for circular dependencies and validate module structure
+        echo "Validating module structure..."
+        
+        # Check that all modules have required files
+        for module_dir in infra/modules/*/; do
+          module_name=$(basename "$module_dir")
+          echo "Checking module: $module_name"
+          
+          if [ ! -f "$module_dir/main.tf" ]; then
+            echo "::error::Module $module_name is missing main.tf"
+            exit 1
+          fi
+          
+          if [ ! -f "$module_dir/variables.tf" ]; then
+            echo "::warning::Module $module_name is missing variables.tf"
+          fi
+          
+          if [ ! -f "$module_dir/outputs.tf" ]; then
+            echo "::warning::Module $module_name is missing outputs.tf"
+          fi
+        done
+        
+        echo "Module structure validation completed."
+
+  security-scan:
+    name: Security Scan Infrastructure
+    runs-on: ubuntu-latest
+    needs: [detect-infrastructure-changes, terraform-validate]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run Checkov security scan
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: infra
+        framework: terraform
+        output_format: sarif
+        output_file_path: checkov-results.sarif
+        soft_fail: false
+        skip_check: CKV_AWS_79,CKV_AWS_61  # Skip specific checks if needed
+    
+    - name: Run TFSec security scan
+      uses: aquasecurity/tfsec-action@v1.0.3
+      with:
+        working_directory: infra
+        format: sarif
+        sarif_file: tfsec-results.sarif
+        soft_fail: true
+    
+    - name: Run Terrascan
+      uses: tenable/terrascan-action@main
+      with:
+        iac_type: terraform
+        iac_dir: infra
+        policy_type: aws
+        only_warn: true
+        sarif_upload: true
+    
+    - name: Upload Checkov results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: checkov-results.sarif
+    
+    - name: Upload TFSec results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: tfsec-results.sarif
+    
+    - name: Check for critical security issues
+      run: |
+        # Parse Checkov results for critical issues
+        if [ -f checkov-results.sarif ]; then
+          CRITICAL_COUNT=$(jq '.runs[0].results | map(select(.level == "error")) | length' checkov-results.sarif 2>/dev/null || echo "0")
+          if [ "$CRITICAL_COUNT" -gt 0 ]; then
+            echo "::error::Found $CRITICAL_COUNT critical security issues in infrastructure"
+            echo "::error::Please review and fix security issues before deployment"
+            exit 1
+          fi
+        fi
+
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    needs: [detect-infrastructure-changes, terraform-validate, security-scan]
+    if: github.event_name == 'pull_request'
+    
+    strategy:
+      matrix:
+        environment: [dev, staging]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+        terraform_wrapper: false
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Terraform Init
+      run: |
+        terraform init \
+          -backend-config="bucket=ons-data-platform-terraform-state-${{ matrix.environment }}" \
+          -backend-config="key=terraform.tfstate" \
+          -backend-config="region=${{ env.AWS_REGION }}" \
+          -backend-config="dynamodb_table=ons-data-platform-terraform-locks-${{ matrix.environment }}"
+      working-directory: infra
+    
+    - name: Terraform Plan
+      id: plan
+      run: |
+        terraform plan \
+          -var="environment=${{ matrix.environment }}" \
+          -var="region=${{ env.AWS_REGION }}" \
+          -out=tfplan-${{ matrix.environment }} \
+          -detailed-exitcode
+        echo "exitcode=$?" >> $GITHUB_OUTPUT
+      working-directory: infra
+      continue-on-error: true
+    
+    - name: Generate plan summary
+      run: |
+        terraform show -no-color tfplan-${{ matrix.environment }} > tfplan-${{ matrix.environment }}.txt
+        
+        # Create a summary of changes
+        echo "## Terraform Plan Summary for ${{ matrix.environment }}" > plan-summary-${{ matrix.environment }}.md
+        echo "" >> plan-summary-${{ matrix.environment }}.md
+        
+        if [ "${{ steps.plan.outputs.exitcode }}" == "0" ]; then
+          echo "✅ No changes detected" >> plan-summary-${{ matrix.environment }}.md
+        elif [ "${{ steps.plan.outputs.exitcode }}" == "2" ]; then
+          echo "📋 Changes detected:" >> plan-summary-${{ matrix.environment }}.md
+          echo "" >> plan-summary-${{ matrix.environment }}.md
+          echo '```hcl' >> plan-summary-${{ matrix.environment }}.md
+          head -50 tfplan-${{ matrix.environment }}.txt >> plan-summary-${{ matrix.environment }}.md
+          echo '```' >> plan-summary-${{ matrix.environment }}.md
+        else
+          echo "❌ Plan failed" >> plan-summary-${{ matrix.environment }}.md
+        fi
+      working-directory: infra
+    
+    - name: Upload plan artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: terraform-plan-${{ matrix.environment }}
+        path: |
+          infra/tfplan-${{ matrix.environment }}
+          infra/tfplan-${{ matrix.environment }}.txt
+          infra/plan-summary-${{ matrix.environment }}.md
+    
+    - name: Comment PR with Plan
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          try {
+            const planSummary = fs.readFileSync('infra/plan-summary-${{ matrix.environment }}.md', 'utf8');
+            
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Terraform Plan Summary for ${{ matrix.environment }}')
+            );
+            
+            const commentBody = `${planSummary}
+            
+            <details>
+            <summary>Plan Details</summary>
+            
+            **Exit Code:** ${{ steps.plan.outputs.exitcode }}
+            **Environment:** ${{ matrix.environment }}
+            **Commit:** ${context.sha.substring(0, 7)}
+            
+            </details>`;
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            }
+          } catch (error) {
+            console.error('Error posting plan comment:', error);
+          }
+
+  terraform-apply-staging:
+    name: Terraform Apply (Staging)
+    runs-on: ubuntu-latest
+    needs: [detect-infrastructure-changes, terraform-validate, security-scan]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+        terraform_wrapper: false
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Terraform Init
+      run: |
+        terraform init \
+          -backend-config="bucket=ons-data-platform-terraform-state-staging" \
+          -backend-config="key=terraform.tfstate" \
+          -backend-config="region=${{ env.AWS_REGION }}" \
+          -backend-config="dynamodb_table=ons-data-platform-terraform-locks-staging"
+      working-directory: infra
+    
+    - name: Terraform Plan
+      run: |
+        terraform plan \
+          -var="environment=staging" \
+          -var="region=${{ env.AWS_REGION }}" \
+          -out=tfplan-staging
+      working-directory: infra
+    
+    - name: Terraform Apply
+      run: terraform apply tfplan-staging
+      working-directory: infra
+    
+    - name: Validate deployment
+      run: |
+        # Basic validation that key resources were created
+        terraform output -json > outputs.json
+        
+        # Check if outputs contain expected values
+        if [ -s outputs.json ]; then
+          echo "✅ Terraform outputs generated successfully"
+          cat outputs.json
+        else
+          echo "⚠️ No terraform outputs found"
+        fi
+      working-directory: infra
+
+  terraform-apply-production:
+    name: Terraform Apply (Production)
+    runs-on: ubuntu-latest
+    needs: [detect-infrastructure-changes, terraform-validate, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+        terraform_wrapper: false
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Terraform Init
+      run: |
+        terraform init \
+          -backend-config="bucket=ons-data-platform-terraform-state-prod" \
+          -backend-config="key=terraform.tfstate" \
+          -backend-config="region=${{ env.AWS_REGION }}" \
+          -backend-config="dynamodb_table=ons-data-platform-terraform-locks-prod"
+      working-directory: infra
+    
+    - name: Terraform Plan
+      id: plan
+      run: |
+        terraform plan \
+          -var="environment=prod" \
+          -var="region=${{ env.AWS_REGION }}" \
+          -out=tfplan-prod \
+          -detailed-exitcode
+        echo "exitcode=$?" >> $GITHUB_OUTPUT
+      working-directory: infra
+    
+    - name: Terraform Apply
+      if: steps.plan.outputs.exitcode == '2'
+      run: terraform apply tfplan-prod
+      working-directory: infra
+    
+    - name: No changes detected
+      if: steps.plan.outputs.exitcode == '0'
+      run: echo "✅ No infrastructure changes detected"
+    
+    - name: Post-deployment validation
+      run: |
+        # Comprehensive validation of deployed infrastructure
+        terraform output -json > outputs.json
+        
+        # Validate critical outputs exist
+        REQUIRED_OUTPUTS=("api_gateway_url" "s3_bucket_names" "lambda_function_names")
+        
+        for output in "${REQUIRED_OUTPUTS[@]}"; do
+          if jq -e ".$output" outputs.json > /dev/null; then
+            echo "✅ Required output '$output' found"
+          else
+            echo "⚠️ Required output '$output' missing"
+          fi
+        done
+        
+        # Test AWS resources are accessible
+        echo "Testing AWS resource accessibility..."
+        
+        # Test S3 buckets
+        aws s3 ls | grep ons-data-platform || echo "⚠️ No ONS data platform S3 buckets found"
+        
+        # Test Lambda functions
+        aws lambda list-functions --query 'Functions[?contains(FunctionName, `ons-data-platform`)].FunctionName' --output table || echo "⚠️ No ONS data platform Lambda functions found"
+        
+        echo "Post-deployment validation completed"
+      working-directory: infra
+
+  cross-component-validation:
+    name: Cross-Component Validation
+    runs-on: ubuntu-latest
+    needs: [terraform-apply-production]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Validate infrastructure dependencies
+      run: |
+        echo "Validating cross-component dependencies..."
+        
+        # Check EventBridge rules are connected to Step Functions
+        EVENTBRIDGE_RULES=$(aws events list-rules --query 'Rules[?contains(Name, `ons-data-platform`)].Name' --output text)
+        if [ -n "$EVENTBRIDGE_RULES" ]; then
+          echo "✅ EventBridge rules found: $EVENTBRIDGE_RULES"
+          
+          for rule in $EVENTBRIDGE_RULES; do
+            TARGETS=$(aws events list-targets-by-rule --rule "$rule" --query 'Targets[].Arn' --output text)
+            if [ -n "$TARGETS" ]; then
+              echo "✅ Rule $rule has targets: $TARGETS"
+            else
+              echo "⚠️ Rule $rule has no targets"
+            fi
+          done
+        else
+          echo "⚠️ No EventBridge rules found"
+        fi
+        
+        # Check Step Functions state machines exist
+        STATE_MACHINES=$(aws stepfunctions list-state-machines --query 'stateMachines[?contains(name, `ons-data-platform`)].name' --output text)
+        if [ -n "$STATE_MACHINES" ]; then
+          echo "✅ Step Functions found: $STATE_MACHINES"
+        else
+          echo "⚠️ No Step Functions state machines found"
+        fi
+        
+        # Check API Gateway integration with Lambda
+        APIS=$(aws apigateway get-rest-apis --query 'items[?contains(name, `ons-data-platform`)].id' --output text)
+        if [ -n "$APIS" ]; then
+          echo "✅ API Gateway found: $APIS"
+        else
+          echo "⚠️ No API Gateway found"
+        fi
+        
+        echo "Cross-component validation completed"
+
+  update-shared-state:
+    name: Update Shared State Management
+    runs-on: ubuntu-latest
+    needs: [cross-component-validation]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+        terraform_wrapper: false
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Update state metadata
+      run: |
+        cd infra
+        terraform init \
+          -backend-config="bucket=ons-data-platform-terraform-state-prod" \
+          -backend-config="key=terraform.tfstate" \
+          -backend-config="region=${{ env.AWS_REGION }}" \
+          -backend-config="dynamodb_table=ons-data-platform-terraform-locks-prod"
+        
+        # Tag the state with deployment metadata
+        terraform output -json > deployment-outputs.json
+        
+        # Store deployment metadata in S3
+        DEPLOYMENT_METADATA=$(cat << EOF
+        {
+          "deployment_id": "${{ github.run_id }}",
+          "commit_sha": "${{ github.sha }}",
+          "deployed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "deployed_by": "${{ github.actor }}",
+          "environment": "prod",
+          "terraform_version": "${{ env.TF_VERSION }}"
+        }
+        EOF
+        )
+        
+        echo "$DEPLOYMENT_METADATA" > deployment-metadata.json
+        
+        # Upload metadata to S3
+        aws s3 cp deployment-metadata.json s3://ons-data-platform-terraform-state-prod/metadata/deployment-${{ github.run_id }}.json
+        aws s3 cp deployment-outputs.json s3://ons-data-platform-terraform-state-prod/metadata/outputs-${{ github.run_id }}.json
+        
+        echo "✅ Shared state metadata updated"

@@ -13,7 +13,7 @@ on:
       - '.github/workflows/infrastructure.yml'
 
 env:
-  TF_VERSION: '1.6.0'
+  TF_VERSION: '1.6.1'
   AWS_REGION: 'us-east-1'
   TF_VAR_region: 'us-east-1'
 
@@ -93,7 +93,7 @@ jobs:
       working-directory: infra
     
     - name: Terraform Validate
-      run: echo "Skipping terraform validate due to a known crash."
+      run: terraform validate
       working-directory: infra
     
     - name: Validate module dependencies

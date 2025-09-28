@@ -6,15 +6,15 @@
   - Configure database parameters, retention policies, and backup settings
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [-] 2. Implement InfluxDB client integration in shared utilities
-  - [-] 2.1 Create InfluxDB handler class with connection management
+- [x] 2. Implement InfluxDB client integration in shared utilities
+  - [x] 2.1 Create InfluxDB handler class with connection management
     - Write InfluxDBHandler class in src/shared_utils/influxdb_client.py
     - Implement client initialization, connection pooling, and credential management
     - Add error handling and retry logic for database connections
     - Create unit tests for InfluxDBHandler class
     - _Requirements: 3.1, 3.3, 3.4_
 
-  - [ ] 2.2 Implement data conversion utilities for InfluxDB line protocol
+  - [x] 2.2 Implement data conversion utilities for InfluxDB line protocol
     - Write conversion functions in src/shared_utils/data_conversion.py
     - Convert Parquet data structures to InfluxDB Point objects
     - Implement proper tag and field mapping based on energy data schema

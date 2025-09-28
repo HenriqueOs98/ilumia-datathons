@@ -146,18 +146,18 @@ output "appconfig_canary_deployment_strategy_id" {
 output "s3_bucket_names" {
   description = "Map of all S3 bucket names"
   value = {
-    raw_data        = module.s3_buckets.raw_bucket_name
-    processed_data  = module.s3_buckets.processed_bucket_name
-    failed_data     = module.s3_buckets.failed_bucket_name
-    access_logs     = module.s3_buckets.access_logs_bucket_name
+    raw_data       = module.s3_buckets.raw_bucket_name
+    processed_data = module.s3_buckets.processed_bucket_name
+    failed_data    = module.s3_buckets.failed_bucket_name
+    access_logs    = module.s3_buckets.access_logs_bucket_name
   }
 }
 
 output "lambda_function_names" {
   description = "Map of all Lambda function names"
   value = {
-    lambda_router              = module.lambda_functions.lambda_router_name
-    structured_data_processor  = module.lambda_functions.structured_data_processor_name
+    lambda_router             = module.lambda_functions.lambda_router_name
+    structured_data_processor = module.lambda_functions.structured_data_processor_name
     rag_query_processor       = module.lambda_functions.rag_query_processor_name
     timestream_loader         = module.lambda_functions.timestream_loader_name
     cost_optimizer            = module.lambda_functions.cost_optimizer_name

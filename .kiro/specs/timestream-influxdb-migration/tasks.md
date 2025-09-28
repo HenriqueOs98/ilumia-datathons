@@ -37,22 +37,22 @@
     - Add S3 trigger configuration for processed data
     - _Requirements: 3.1, 3.4_
 
-- [-] 4. Create data migration utilities
-  - [ ] 4.1 Implement Timestream data export functionality
+- [x] 4. Create data migration utilities
+  - [x] 4.1 Implement Timestream data export functionality
     - Create src/migration_tools/timestream_exporter.py
     - Write functions to query and export existing Timestream data to S3
     - Implement pagination and batching for large data exports
     - Add progress tracking and resumable migration capabilities
     - _Requirements: 2.1, 2.3_
 
-  - [ ] 4.2 Build data validation and integrity checking tools
+  - [x] 4.2 Build data validation and integrity checking tools
     - Create src/migration_tools/data_validator.py
     - Implement functions to compare data between Timestream and InfluxDB
     - Add checksum validation and row count verification
     - Write automated tests to validate data migration accuracy
     - _Requirements: 2.2, 2.3_
 
-  - [ ] 4.3 Develop migration orchestration Lambda
+  - [x] 4.3 Develop migration orchestration Lambda
     - Create src/migration_orchestrator/lambda_function.py
     - Coordinate the entire migration process using Step Functions
     - Implement error handling, logging, and SNS notification systems

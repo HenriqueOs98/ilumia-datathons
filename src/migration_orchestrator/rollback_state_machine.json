@@ -1,0 +1,153 @@
+{
+  "Comment": "Migration Rollback State Machine",
+  "StartAt": "InitializeRollback",
+  "States": {
+    "InitializeRollback": {
+      "Type": "Pass",
+      "Comment": "Initialize rollback parameters",
+      "Parameters": {
+        "job_id.$": "$.job_id",
+        "source_database.$": "$.source_database",
+        "source_table.$": "$.source_table",
+        "target_bucket.$": "$.target_bucket",
+        "s3_export_bucket.$": "$.s3_export_bucket"
+      },
+      "Next": "CheckInfluxDBData"
+    },
+    
+    "CheckInfluxDBData": {
+      "Type": "Task",
+      "Comment": "Check if data exists in InfluxDB",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${DataValidatorLambdaArn}",
+        "Payload": {
+          "action": "check_data_exists",
+          "target_bucket.$": "$.target_bucket",
+          "job_id.$": "$.job_id"
+        }
+      },
+      "ResultPath": "$.data_check_result",
+      "Next": "DataExistsChoice"
+    },
+    
+    "DataExistsChoice": {
+      "Type": "Choice",
+      "Comment": "Check if data exists in InfluxDB",
+      "Choices": [
+        {
+          "Variable": "$.data_check_result.Payload.data_exists",
+          "BooleanEquals": true,
+          "Next": "DeleteInfluxDBData"
+        }
+      ],
+      "Default": "CleanupS3Data"
+    },
+    
+    "DeleteInfluxDBData": {
+      "Type": "Task",
+      "Comment": "Delete migrated data from InfluxDB",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${InfluxDBLoaderLambdaArn}",
+        "Payload": {
+          "action": "delete_migration_data",
+          "job_id.$": "$.job_id",
+          "target_bucket.$": "$.target_bucket"
+        }
+      },
+      "ResultPath": "$.delete_result",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "RollbackFailed",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "CleanupS3Data"
+    },
+    
+    "CleanupS3Data": {
+      "Type": "Task",
+      "Comment": "Clean up exported data from S3",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${TimestreamExporterLambdaArn}",
+        "Payload": {
+          "action": "cleanup_export_data",
+          "job_id.$": "$.job_id",
+          "s3_bucket.$": "$.s3_export_bucket"
+        }
+      },
+      "ResultPath": "$.cleanup_result",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 15,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "RollbackPartiallyFailed",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "NotifyRollbackCompletion"
+    },
+    
+    "NotifyRollbackCompletion": {
+      "Type": "Task",
+      "Comment": "Notify orchestrator of rollback completion",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${MigrationOrchestratorLambdaArn}",
+        "Payload": {
+          "action": "rollback_completion",
+          "job_id.$": "$.job_id",
+          "rollback_status": "success",
+          "cleanup_result.$": "$.cleanup_result.Payload",
+          "delete_result.$": "$.delete_result.Payload"
+        }
+      },
+      "Next": "RollbackSucceeded"
+    },
+    
+    "RollbackSucceeded": {
+      "Type": "Succeed",
+      "Comment": "Rollback completed successfully"
+    },
+    
+    "RollbackPartiallyFailed": {
+      "Type": "Task",
+      "Comment": "Handle partial rollback failure",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${MigrationOrchestratorLambdaArn}",
+        "Payload": {
+          "action": "rollback_completion",
+          "job_id.$": "$.job_id",
+          "rollback_status": "partial_failure",
+          "error_details.$": "$.error"
+        }
+      },
+      "Next": "RollbackFailed"
+    },
+    
+    "RollbackFailed": {
+      "Type": "Fail",
+      "Comment": "Rollback failed",
+      "Cause": "Rollback process failed"
+    }
+  }
+}

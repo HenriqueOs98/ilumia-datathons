@@ -1,0 +1,266 @@
+{
+  "Comment": "Timestream to InfluxDB Migration State Machine",
+  "StartAt": "InitializeMigration",
+  "States": {
+    "InitializeMigration": {
+      "Type": "Pass",
+      "Comment": "Initialize migration parameters",
+      "Parameters": {
+        "job_id.$": "$.job_id",
+        "source_database.$": "$.source_database",
+        "source_table.$": "$.source_table",
+        "target_bucket.$": "$.target_bucket",
+        "start_time.$": "$.start_time",
+        "end_time.$": "$.end_time",
+        "batch_size.$": "$.batch_size",
+        "validation_enabled.$": "$.validation_enabled",
+        "rollback_enabled.$": "$.rollback_enabled",
+        "s3_export_bucket.$": "$.s3_export_bucket"
+      },
+      "Next": "ExportTimestreamData"
+    },
+    
+    "ExportTimestreamData": {
+      "Type": "Task",
+      "Comment": "Export data from Timestream to S3",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${TimestreamExporterLambdaArn}",
+        "Payload": {
+          "action": "export_data",
+          "job_id.$": "$.job_id",
+          "database_name.$": "$.source_database",
+          "table_name.$": "$.source_table",
+          "start_time.$": "$.start_time",
+          "end_time.$": "$.end_time",
+          "s3_bucket.$": "$.s3_export_bucket",
+          "batch_size.$": "$.batch_size"
+        }
+      },
+      "ResultPath": "$.export_result",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleExportFailure",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "NotifyExportCompletion"
+    },
+    
+    "NotifyExportCompletion": {
+      "Type": "Task",
+      "Comment": "Notify orchestrator of export completion",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${MigrationOrchestratorLambdaArn}",
+        "Payload": {
+          "action": "step_completion",
+          "job_id.$": "$.job_id",
+          "step_name": "export",
+          "step_status": "success",
+          "step_results.$": "$.export_result.Payload"
+        }
+      },
+      "ResultPath": "$.notification_result",
+      "Next": "CheckValidationEnabled"
+    },
+    
+    "CheckValidationEnabled": {
+      "Type": "Choice",
+      "Comment": "Check if validation is enabled",
+      "Choices": [
+        {
+          "Variable": "$.validation_enabled",
+          "BooleanEquals": true,
+          "Next": "ValidateDataMigration"
+        }
+      ],
+      "Default": "LoadDataToInfluxDB"
+    },
+    
+    "ValidateDataMigration": {
+      "Type": "Task",
+      "Comment": "Validate migrated data integrity",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${DataValidatorLambdaArn}",
+        "Payload": {
+          "action": "validate_migration",
+          "job_id.$": "$.job_id",
+          "source_database.$": "$.source_database",
+          "source_table.$": "$.source_table",
+          "target_bucket.$": "$.target_bucket",
+          "start_time.$": "$.start_time",
+          "end_time.$": "$.end_time"
+        }
+      },
+      "ResultPath": "$.validation_result",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 15,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleValidationFailure",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "NotifyValidationCompletion"
+    },
+    
+    "NotifyValidationCompletion": {
+      "Type": "Task",
+      "Comment": "Notify orchestrator of validation completion",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${MigrationOrchestratorLambdaArn}",
+        "Payload": {
+          "action": "step_completion",
+          "job_id.$": "$.job_id",
+          "step_name": "validation",
+          "step_status": "success",
+          "step_results.$": "$.validation_result.Payload"
+        }
+      },
+      "ResultPath": "$.notification_result",
+      "Next": "CheckValidationResults"
+    },
+    
+    "CheckValidationResults": {
+      "Type": "Choice",
+      "Comment": "Check validation results",
+      "Choices": [
+        {
+          "Variable": "$.validation_result.Payload.overall_status",
+          "StringEquals": "failed",
+          "Next": "HandleValidationFailure"
+        }
+      ],
+      "Default": "LoadDataToInfluxDB"
+    },
+    
+    "LoadDataToInfluxDB": {
+      "Type": "Task",
+      "Comment": "Load exported data into InfluxDB",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${InfluxDBLoaderLambdaArn}",
+        "Payload": {
+          "action": "load_migration_data",
+          "job_id.$": "$.job_id",
+          "s3_bucket.$": "$.s3_export_bucket",
+          "s3_prefix.$": "States.Format('timestream-export/{}/', $.job_id)",
+          "target_bucket.$": "$.target_bucket"
+        }
+      },
+      "ResultPath": "$.migration_result",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleMigrationFailure",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "NotifyMigrationCompletion"
+    },
+    
+    "NotifyMigrationCompletion": {
+      "Type": "Task",
+      "Comment": "Notify orchestrator of migration completion",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${MigrationOrchestratorLambdaArn}",
+        "Payload": {
+          "action": "step_completion",
+          "job_id.$": "$.job_id",
+          "step_name": "migration",
+          "step_status": "success",
+          "step_results.$": "$.migration_result.Payload"
+        }
+      },
+      "ResultPath": "$.notification_result",
+      "Next": "MigrationSucceeded"
+    },
+    
+    "MigrationSucceeded": {
+      "Type": "Succeed",
+      "Comment": "Migration completed successfully"
+    },
+    
+    "HandleExportFailure": {
+      "Type": "Task",
+      "Comment": "Handle export failure",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${MigrationOrchestratorLambdaArn}",
+        "Payload": {
+          "action": "migration_failure",
+          "job_id.$": "$.job_id",
+          "failed_step": "export",
+          "error_details.$": "$.error"
+        }
+      },
+      "Next": "MigrationFailed"
+    },
+    
+    "HandleValidationFailure": {
+      "Type": "Task",
+      "Comment": "Handle validation failure",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${MigrationOrchestratorLambdaArn}",
+        "Payload": {
+          "action": "migration_failure",
+          "job_id.$": "$.job_id",
+          "failed_step": "validation",
+          "error_details.$": "$.error"
+        }
+      },
+      "Next": "MigrationFailed"
+    },
+    
+    "HandleMigrationFailure": {
+      "Type": "Task",
+      "Comment": "Handle migration failure",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${MigrationOrchestratorLambdaArn}",
+        "Payload": {
+          "action": "migration_failure",
+          "job_id.$": "$.job_id",
+          "failed_step": "migration",
+          "error_details.$": "$.error"
+        }
+      },
+      "Next": "MigrationFailed"
+    },
+    
+    "MigrationFailed": {
+      "Type": "Fail",
+      "Comment": "Migration failed",
+      "Cause": "Migration process failed"
+    }
+  }
+}

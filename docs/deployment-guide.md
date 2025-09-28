@@ -40,6 +40,7 @@ graph TB
 - **Rollback Triggers**: 
   - Error rate > 5%
   - Average duration > 10 seconds
+  - InfluxDB connection failures
   - CloudWatch alarms
 
 ### 2. All-at-Once Deployment (Emergency)
@@ -234,11 +235,21 @@ aws appconfig get-configuration \
 ```bash
 # Comprehensive health check
 python scripts/rollback.py --action health-check \
-  --functions lambda_router structured_data_processor rag_query_processor timestream_loader
+  --functions lambda_router structured_data_processor rag_query_processor influxdb_loader timeseries_query_processor
+
+# InfluxDB-specific health check
+python scripts/validate_influxdb_performance.py --health-check-only
 
 # API endpoint health check
 curl -X GET "https://api.ons-platform.com/health" \
   -H "x-api-key: YOUR_API_KEY"
+
+# Check InfluxDB connectivity
+python -c "
+from src.shared_utils.influxdb_client import InfluxDBHandler
+handler = InfluxDBHandler()
+print(handler.health_check())
+"
 
 # Check all active deployments
 aws codedeploy list-deployments \

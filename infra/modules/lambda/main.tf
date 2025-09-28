@@ -418,14 +418,14 @@ resource "aws_lambda_function" "rag_query_processor" {
 
   environment {
     variables = {
-      KNOWLEDGE_BASE_ID           = var.knowledge_base_id
-      MODEL_ARN                   = var.bedrock_model_arn
-      MAX_QUERY_LENGTH            = "1000"
-      MAX_RESULTS                 = "5"
-      MIN_CONFIDENCE_SCORE        = "0.7"
-      APPCONFIG_APPLICATION       = "${var.project_name}-${var.environment}-app"
-      ENVIRONMENT                 = var.environment
-      TIMESERIES_LAMBDA_NAME      = "${var.project_name}-${var.environment}-timeseries-query-processor"
+      KNOWLEDGE_BASE_ID      = var.knowledge_base_id
+      MODEL_ARN              = var.bedrock_model_arn
+      MAX_QUERY_LENGTH       = "1000"
+      MAX_RESULTS            = "5"
+      MIN_CONFIDENCE_SCORE   = "0.7"
+      APPCONFIG_APPLICATION  = "${var.project_name}-${var.environment}-app"
+      ENVIRONMENT            = var.environment
+      TIMESERIES_LAMBDA_NAME = "${var.project_name}-${var.environment}-timeseries-query-processor"
     }
   }
 

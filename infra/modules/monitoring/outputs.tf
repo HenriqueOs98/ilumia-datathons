@@ -108,7 +108,7 @@ output "influxdb_resource_alarms" {
 output "influxdb_cost_alarms" {
   description = "Map of InfluxDB cost monitoring alarm ARNs"
   value = {
-    daily_cost_high  = aws_cloudwatch_metric_alarm.influxdb_daily_cost_high.arn
-    storage_growth   = aws_cloudwatch_metric_alarm.influxdb_storage_growth.arn
+    daily_cost_high = aws_cloudwatch_metric_alarm.influxdb_daily_cost_high.arn
+    storage_growth  = aws_cloudwatch_metric_alarm.influxdb_storage_growth.arn
   }
 }

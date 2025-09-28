@@ -158,10 +158,10 @@ resource "aws_cloudwatch_dashboard" "traffic_switching" {
         height = 6
 
         properties = {
-          query   = "SOURCE '/aws/lambda/${var.project_name}-${var.environment}-rag-query-processor' | fields @timestamp, @message | filter @message like /ERROR/ | sort @timestamp desc | limit 20"
-          region  = data.aws_region.current.name
-          title   = "Recent Errors from RAG Query Processor"
-          view    = "table"
+          query  = "SOURCE '/aws/lambda/${var.project_name}-${var.environment}-rag-query-processor' | fields @timestamp, @message | filter @message like /ERROR/ | sort @timestamp desc | limit 20"
+          region = data.aws_region.current.name
+          title  = "Recent Errors from RAG Query Processor"
+          view   = "table"
         }
       },
       {
@@ -172,10 +172,10 @@ resource "aws_cloudwatch_dashboard" "traffic_switching" {
         height = 6
 
         properties = {
-          query   = "SOURCE '/aws/lambda/${var.project_name}-${var.environment}-timeseries-query-processor' | fields @timestamp, @message | filter @message like /ERROR/ | sort @timestamp desc | limit 20"
-          region  = data.aws_region.current.name
-          title   = "Recent Errors from Timeseries Query Processor"
-          view    = "table"
+          query  = "SOURCE '/aws/lambda/${var.project_name}-${var.environment}-timeseries-query-processor' | fields @timestamp, @message | filter @message like /ERROR/ | sort @timestamp desc | limit 20"
+          region = data.aws_region.current.name
+          title  = "Recent Errors from Timeseries Query Processor"
+          view   = "table"
         }
       }
     ]
@@ -197,7 +197,7 @@ resource "aws_cloudwatch_metric_alarm" "traffic_switch_success_rate" {
   namespace           = "ONS/TrafficSwitching"
   period              = "300"
   statistic           = "Average"
-  threshold           = "0.95"  # 95% success rate
+  threshold           = "0.95" # 95% success rate
   alarm_description   = "Traffic switching success rate below threshold"
   treat_missing_data  = "notBreaching"
 
@@ -217,7 +217,7 @@ resource "aws_cloudwatch_metric_alarm" "influxdb_vs_timestream_latency" {
   alarm_name          = "${var.project_name}-${var.environment}-influxdb-latency-comparison"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
-  
+
   metric_query {
     id = "m1"
     metric {
@@ -231,7 +231,7 @@ resource "aws_cloudwatch_metric_alarm" "influxdb_vs_timestream_latency" {
       }
     }
   }
-  
+
   metric_query {
     id = "m2"
     metric {
@@ -245,7 +245,7 @@ resource "aws_cloudwatch_metric_alarm" "influxdb_vs_timestream_latency" {
       }
     }
   }
-  
+
   metric_query {
     id          = "e1"
     expression  = "m1 - m2"
@@ -253,8 +253,8 @@ resource "aws_cloudwatch_metric_alarm" "influxdb_vs_timestream_latency" {
     return_data = true
   }
 
-  threshold         = 5000  # 5 seconds difference
-  alarm_description = "InfluxDB response time significantly higher than Timestream"
+  threshold          = 5000 # 5 seconds difference
+  alarm_description  = "InfluxDB response time significantly higher than Timestream"
   treat_missing_data = "notBreaching"
 
   alarm_actions = [var.sns_topic_arn]

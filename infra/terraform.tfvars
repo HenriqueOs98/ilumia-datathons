@@ -4,11 +4,11 @@ project_name = "ons-data-platform"
 aws_region   = "us-east-1"
 
 # VPC Configuration
-vpc_cidr                = "10.0.0.0/16"
-public_subnet_cidrs     = ["10.0.1.0/24", "10.0.2.0/24"]
-private_subnet_cidrs    = ["10.0.10.0/24", "10.0.20.0/24"]
-enable_nat_gateway      = true
-enable_vpc_endpoints    = true
+vpc_cidr             = "10.0.0.0/16"
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = ["10.0.10.0/24", "10.0.20.0/24"]
+enable_nat_gateway   = true
+enable_vpc_endpoints = true
 
 # InfluxDB Configuration
 influxdb_password                = "SecureInfluxDBPassword123!"
@@ -23,8 +23,8 @@ influxdb_token_secret_name       = "ons/influxdb/token"
 # S3 Configuration
 enable_cross_region_replication = false
 replication_region              = "us-west-2"
-raw_data_retention_days         = 2555  # 7 years
-processed_data_retention_days   = 2555  # 7 years
+raw_data_retention_days         = 2555 # 7 years
+processed_data_retention_days   = 2555 # 7 years
 
 # API Configuration
 api_throttle_burst_limit = 2000
@@ -37,10 +37,10 @@ log_retention_days = 30
 bedrock_model_arn = "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0"
 
 # Deployment Configuration
-deployment_error_threshold      = 5
-deployment_duration_threshold   = 10000
-deployment_config_name          = "CodeDeployDefault.LambdaCanary10Percent5Minutes"
-deployment_notification_email   = "admin@ons-platform.com"
+deployment_error_threshold    = 5
+deployment_duration_threshold = 10000
+deployment_config_name        = "CodeDeployDefault.LambdaCanary10Percent5Minutes"
+deployment_notification_email = "admin@ons-platform.com"
 
 # Security Configuration
 enable_deletion_protection = false

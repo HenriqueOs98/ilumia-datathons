@@ -638,11 +638,11 @@ resource "aws_cloudwatch_dashboard" "influxdb_monitoring" {
           metrics = [
             ["ONS/InfluxDB", "ConnectionStatus", "Environment", var.environment]
           ]
-          view    = "singleValue"
-          region  = var.aws_region
-          title   = "InfluxDB Connection Status"
-          period  = 300
-          stat    = "Average"
+          view   = "singleValue"
+          region = var.aws_region
+          title  = "InfluxDB Connection Status"
+          period = 300
+          stat   = "Average"
         }
       },
       {
@@ -656,11 +656,11 @@ resource "aws_cloudwatch_dashboard" "influxdb_monitoring" {
           metrics = [
             ["ONS/InfluxDB", "HealthCheckResponseTime", "Environment", var.environment]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "Health Check Response Time"
-          period  = 300
-          stat    = "Average"
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "Health Check Response Time"
+          period = 300
+          stat   = "Average"
         }
       },
       {
@@ -674,11 +674,11 @@ resource "aws_cloudwatch_dashboard" "influxdb_monitoring" {
           metrics = [
             ["ONS/InfluxDB", "EstimatedDailyCost", "Environment", var.environment]
           ]
-          view    = "singleValue"
-          region  = var.aws_region
-          title   = "Estimated Daily Cost (USD)"
-          period  = 86400
-          stat    = "Maximum"
+          view   = "singleValue"
+          region = var.aws_region
+          title  = "Estimated Daily Cost (USD)"
+          period = 86400
+          stat   = "Maximum"
         }
       },
       {
@@ -773,11 +773,11 @@ resource "aws_cloudwatch_dashboard" "influxdb_monitoring" {
           metrics = [
             ["ONS/InfluxDB", "CPUUtilization", "Environment", var.environment]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "CPU Utilization (%)"
-          period  = 300
-          stat    = "Average"
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "CPU Utilization (%)"
+          period = 300
+          stat   = "Average"
           yAxis = {
             left = {
               min = 0
@@ -797,11 +797,11 @@ resource "aws_cloudwatch_dashboard" "influxdb_monitoring" {
           metrics = [
             ["ONS/InfluxDB", "MemoryUtilization", "Environment", var.environment]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "Memory Utilization (%)"
-          period  = 300
-          stat    = "Average"
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "Memory Utilization (%)"
+          period = 300
+          stat   = "Average"
           yAxis = {
             left = {
               min = 0
@@ -821,11 +821,11 @@ resource "aws_cloudwatch_dashboard" "influxdb_monitoring" {
           metrics = [
             ["ONS/InfluxDB", "DiskUtilization", "Environment", var.environment]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "Disk Utilization (%)"
-          period  = 300
-          stat    = "Average"
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "Disk Utilization (%)"
+          period = 300
+          stat   = "Average"
           yAxis = {
             left = {
               min = 0
@@ -845,11 +845,11 @@ resource "aws_cloudwatch_dashboard" "influxdb_monitoring" {
           metrics = [
             ["ONS/InfluxDB", "ActiveConnections", "Environment", var.environment]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "Active Connections"
-          period  = 300
-          stat    = "Average"
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "Active Connections"
+          period = 300
+          stat   = "Average"
         }
       },
       {
@@ -863,11 +863,11 @@ resource "aws_cloudwatch_dashboard" "influxdb_monitoring" {
           metrics = [
             ["ONS/InfluxDB", "StorageUsage", "Environment", var.environment]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          title   = "Storage Usage (GB)"
-          period  = 86400
-          stat    = "Maximum"
+          view   = "timeSeries"
+          region = var.aws_region
+          title  = "Storage Usage (GB)"
+          period = 86400
+          stat   = "Maximum"
         }
       }
     ]
@@ -1318,7 +1318,7 @@ resource "aws_cloudwatch_metric_alarm" "influxdb_storage_growth" {
 resource "aws_cloudwatch_composite_alarm" "influxdb_overall_health" {
   alarm_name        = "${var.environment}-influxdb-overall-health"
   alarm_description = "Composite alarm for overall InfluxDB health status"
-  
+
   alarm_rule = join(" OR ", [
     "ALARM(${aws_cloudwatch_metric_alarm.influxdb_connection_status.alarm_name})",
     "ALARM(${aws_cloudwatch_metric_alarm.influxdb_memory_utilization.alarm_name})",

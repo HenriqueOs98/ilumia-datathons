@@ -115,11 +115,11 @@ resource "aws_appconfig_hosted_configuration_version" "traffic_switch_settings" 
 
   content = jsonencode({
     traffic_switching = {
-      canary_percentage           = 10
-      rollback_threshold_errors   = 5
-      rollback_threshold_latency  = 10000  # 10 seconds
-      monitoring_window_minutes   = 15
-      auto_rollback_enabled       = true
+      canary_percentage          = 10
+      rollback_threshold_errors  = 5
+      rollback_threshold_latency = 10000 # 10 seconds
+      monitoring_window_minutes  = 15
+      auto_rollback_enabled      = true
       performance_baseline = {
         max_response_time_ms = 5000
         min_success_rate     = 0.95
@@ -129,16 +129,16 @@ resource "aws_appconfig_hosted_configuration_version" "traffic_switch_settings" 
     influxdb_config = {
       connection_timeout_ms = 30000
       query_timeout_ms      = 60000
-      max_retries          = 3
-      batch_size           = 1000
-      enable_caching       = true
-      cache_ttl_seconds    = 300
+      max_retries           = 3
+      batch_size            = 1000
+      enable_caching        = true
+      cache_ttl_seconds     = 300
     }
     monitoring = {
       enable_detailed_metrics = true
-      enable_x_ray_tracing   = true
-      log_level              = "INFO"
-      sample_rate            = 0.1
+      enable_x_ray_tracing    = true
+      log_level               = "INFO"
+      sample_rate             = 0.1
     }
   })
 
@@ -168,7 +168,7 @@ resource "aws_cloudwatch_metric_alarm" "influxdb_migration_error_rate" {
   namespace           = "ONS/TrafficSwitching"
   period              = "300"
   statistic           = "Average"
-  threshold           = "0.05"  # 5% error rate
+  threshold           = "0.05" # 5% error rate
   alarm_description   = "High error rate during InfluxDB migration"
   treat_missing_data  = "notBreaching"
 
@@ -187,7 +187,7 @@ resource "aws_cloudwatch_metric_alarm" "influxdb_migration_latency" {
   namespace           = "ONS/TrafficSwitching"
   period              = "300"
   statistic           = "Average"
-  threshold           = "10000"  # 10 seconds
+  threshold           = "10000" # 10 seconds
   alarm_description   = "High latency during InfluxDB migration"
   treat_missing_data  = "notBreaching"
 

@@ -404,6 +404,14 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
     
+    - name: Setup Terraform state infrastructure
+      run: |
+        # Ensure state bucket and DynamoDB table exist
+        chmod +x scripts/setup-terraform-state.sh
+        ./scripts/setup-terraform-state.sh
+      env:
+        AWS_REGION: ${{ env.AWS_REGION }}
+    
     - name: Terraform Init
       run: |
         terraform init \
@@ -423,6 +431,7 @@ jobs:
           -detailed-exitcode
         echo "exitcode=$?" >> $GITHUB_OUTPUT
       working-directory: infra
+      continue-on-error: true
     
     - name: Terraform Apply
       if: steps.plan.outputs.exitcode == '2'
@@ -432,6 +441,13 @@ jobs:
     - name: No changes detected
       if: steps.plan.outputs.exitcode == '0'
       run: echo "✅ No infrastructure changes detected"
+    
+    - name: Plan failed
+      if: steps.plan.outputs.exitcode == '1'
+      run: |
+        echo "❌ Terraform plan failed"
+        echo "Please check the plan output above for errors"
+        exit 1
     
     - name: Post-deployment validation
       run: |

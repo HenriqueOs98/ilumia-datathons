@@ -462,6 +462,7 @@ resource "aws_cloudwatch_metric_alarm" "data_quality_issues_alarm" {
 
 # Budget for the ONS Data Platform
 resource "aws_budgets_budget" "ons_platform_budget" {
+  count             = length(var.cost_alert_emails) > 0 ? 1 : 0
   name              = "${var.environment}-ons-data-platform-budget"
   budget_type       = "COST"
   limit_amount      = var.monthly_budget_limit
@@ -626,8 +627,16 @@ resource "aws_cloudwatch_dashboard" "cost_optimization" {
 }
 
 # Lambda Function for Cost Optimization Recommendations
+# Package cost optimizer lambda
+data "archive_file" "cost_optimizer" {
+  type        = "zip"
+  source_dir  = "${path.root}/../src/cost_optimizer"
+  output_path = "${path.module}/cost_optimizer.zip"
+  excludes    = ["__pycache__", "*.pyc", "test_*.py"]
+}
+
 resource "aws_lambda_function" "cost_optimizer" {
-  filename      = "cost_optimizer.zip"
+  filename      = data.archive_file.cost_optimizer.output_path
   function_name = "${var.environment}-ons-cost-optimizer"
   role          = aws_iam_role.cost_optimizer_role.arn
   handler       = "lambda_function.lambda_handler"

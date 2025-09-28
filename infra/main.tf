@@ -59,11 +59,12 @@ module "lambda_functions" {
   project_name               = var.project_name
   s3_raw_bucket              = module.s3_buckets.raw_bucket_name
   s3_processed_bucket        = module.s3_buckets.processed_bucket_name
-  timestream_database_name   = module.timestream.database_name
-  generation_table_name      = module.timestream.generation_table_name
-  consumption_table_name     = module.timestream.consumption_table_name
-  transmission_table_name    = module.timestream.transmission_table_name
-  timestream_lambda_role_arn = module.timestream.lambda_role_arn
+  # Timestream temporarily disabled
+  # timestream_database_name   = module.timestream.database_name
+  # generation_table_name      = module.timestream.generation_table_name
+  # consumption_table_name     = module.timestream.consumption_table_name
+  # transmission_table_name    = module.timestream.transmission_table_name
+  # timestream_lambda_role_arn = module.timestream.lambda_role_arn
   log_retention_days         = var.log_retention_days
   sns_topic_arn              = module.monitoring.sns_topic_arn
   knowledge_base_id          = module.knowledge_base.knowledge_base_id
@@ -100,16 +101,16 @@ module "api_gateway" {
   lambda_function_name = module.lambda_functions.rag_query_processor_name
 }
 
-# Timestream
-module "timestream" {
-  source = "./modules/timestream"
-
-  environment           = var.environment
-  project_name          = var.project_name
-  processed_data_bucket = module.s3_buckets.processed_bucket_name
-  rejected_data_bucket  = module.s3_buckets.failed_bucket_name
-  log_retention_days    = var.log_retention_days
-}
+# Timestream - Temporarily disabled due to access requirements
+# module "timestream" {
+#   source = "./modules/timestream"
+# 
+#   environment           = var.environment
+#   project_name          = var.project_name
+#   processed_data_bucket = module.s3_buckets.processed_bucket_name
+#   rejected_data_bucket  = module.s3_buckets.failed_bucket_name
+#   log_retention_days    = var.log_retention_days
+# }
 
 # Knowledge Base
 module "knowledge_base" {

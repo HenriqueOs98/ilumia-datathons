@@ -71,6 +71,10 @@ resource "aws_cloudwatch_log_group" "timestream_loader" {
   name              = "/aws/lambda/${var.project_name}-${var.environment}-timestream-loader"
   retention_in_days = var.log_retention_days
 
+  lifecycle {
+    ignore_changes = [name]
+  }
+
   tags = {
     Name        = "${var.project_name}-${var.environment}-timestream-loader-logs"
     Environment = var.environment
@@ -98,7 +102,10 @@ resource "null_resource" "build_pandas_layer" {
   provisioner "local-exec" {
     command = <<-EOT
       mkdir -p ${path.module}/layer/python
-      pip install -r ${path.root}/../src/timestream_loader/requirements.txt -t ${path.module}/layer/python/
+      # Use specific versions that are compatible
+      pip install boto3==1.34.0 pandas==2.0.3 pyarrow==12.0.1 -t ${path.module}/layer/python/ --no-deps --platform manylinux2014_x86_64 --only-binary=:all:
+      # Install dependencies separately
+      pip install numpy==1.24.4 python-dateutil==2.8.2 pytz==2023.3 six==1.16.0 -t ${path.module}/layer/python/ --no-deps --platform manylinux2014_x86_64 --only-binary=:all:
     EOT
   }
 }

@@ -13,10 +13,11 @@ output "api_gateway_url" {
   value       = module.api_gateway.api_url
 }
 
-output "timestream_database_name" {
-  description = "Timestream database name"
-  value       = module.timestream.database_name
-}
+# Timestream temporarily disabled
+# output "timestream_database_name" {
+#   description = "Timestream database name"
+#   value       = module.timestream.database_name
+# }
 
 output "knowledge_base_id" {
   description = "Knowledge Base ID"
@@ -53,10 +54,10 @@ output "s3_processed_bucket_replica_name" {
   value       = module.s3_buckets.processed_bucket_replica_name
 }
 
-output "timestream_table_arns" {
-  description = "ARNs of Timestream tables"
-  value       = module.timestream.table_arns
-}
+# output "timestream_table_arns" {
+#   description = "ARNs of Timestream tables"
+#   value       = module.timestream.table_arns
+# }
 
 output "timestream_loader_lambda_arn" {
   description = "ARN of the Timestream loader Lambda function"

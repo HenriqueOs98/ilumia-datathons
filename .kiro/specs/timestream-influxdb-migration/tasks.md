@@ -6,7 +6,7 @@
   - Configure database parameters, retention policies, and backup settings
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [x] 2. Implement InfluxDB client integration in shared utilities
+- [ ] 2. Implement InfluxDB client integration in shared utilities
   - [x] 2.1 Create InfluxDB handler class with connection management
     - Write InfluxDBHandler class in src/shared_utils/influxdb_client.py
     - Implement client initialization, connection pooling, and credential management
@@ -22,8 +22,8 @@
     - Create unit tests for data conversion functions
     - _Requirements: 2.1, 2.2, 3.2_
 
-- [ ] 3. Create new InfluxDB loader Lambda function
-  - [ ] 3.1 Implement InfluxDB loader Lambda function
+- [-] 3. Create new InfluxDB loader Lambda function
+  - [-] 3.1 Implement InfluxDB loader Lambda function
     - Create src/influxdb_loader/lambda_function.py based on existing timestream_loader
     - Use InfluxDBHandler and data conversion utilities from shared_utils
     - Implement batch writing with configurable batch sizes for performance

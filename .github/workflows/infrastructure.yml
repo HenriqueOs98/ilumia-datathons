@@ -231,7 +231,7 @@ jobs:
           -detailed-exitcode
         echo "exitcode=$?" >> $GITHUB_OUTPUT
       working-directory: infra
-      continue-on-error: true
+      continue-on-error: false
     
     - name: Generate plan summary
       run: |

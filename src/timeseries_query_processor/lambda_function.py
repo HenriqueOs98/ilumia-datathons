@@ -18,23 +18,36 @@ from botocore.exceptions import ClientError
 # Import shared utilities
 import sys
 sys.path.append('/opt/python')
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared_utils'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from shared_utils import (
-    InfluxDBHandler,
-    QueryTranslator,
-    QueryLanguage,
-    create_query_translator,
-    translate_natural_language_query
-)
-from shared_utils.logging_config import setup_logging
+try:
+    from shared_utils import (
+        InfluxDBHandler,
+        QueryTranslator,
+        QueryLanguage,
+        create_query_translator,
+        translate_natural_language_query
+    )
+    from shared_utils.logging_config import setup_logging
+except ImportError:
+    # Fallback for testing environment
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared_utils'))
+    from influxdb_client import InfluxDBHandler
+    from query_translator import (
+        QueryTranslator,
+        QueryLanguage,
+        create_query_translator,
+        translate_natural_language_query
+    )
+    from logging_config import setup_logging
 
 # Set up logging
-logger = setup_logging(__name__)
+setup_logging()
+logger = logging.getLogger(__name__)
 
-# Initialize AWS clients
-cloudwatch = boto3.client('cloudwatch')
-ssm = boto3.client('ssm')
+# AWS clients (lazy-loaded)
+cloudwatch = None
+ssm = None
 
 # Cache for query results
 query_cache = {}
@@ -128,6 +141,10 @@ class TimeSeriesQueryProcessor:
     def _publish_metrics(self, metrics: Dict[str, Any]) -> None:
         """Publish performance metrics to CloudWatch."""
         try:
+            global cloudwatch
+            if cloudwatch is None:
+                cloudwatch = boto3.client('cloudwatch')
+            
             metric_data = []
             
             for metric_name, value in metrics.items():

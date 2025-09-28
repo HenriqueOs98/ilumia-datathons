@@ -67,14 +67,14 @@
     - Create unit tests for query translation functionality
     - _Requirements: 4.1, 4.3, 8.3, 8.4_
 
-  - [-] 5.2 Create time series query processor Lambda
+  - [x] 5.2 Create time series query processor Lambda
     - Create src/timeseries_query_processor/lambda_function.py
     - Implement InfluxDB query execution with proper error handling
     - Add query performance monitoring and result caching
     - Format time series data for API responses
     - _Requirements: 4.1, 4.2, 4.3_
 
-  - [ ] 5.3 Update RAG query processor for time series integration
+  - [-] 5.3 Update RAG query processor for time series integration
     - Modify src/rag_query_processor/lambda_function.py
     - Add time series context detection and InfluxDB query integration
     - Implement enhanced response formatting with time series data

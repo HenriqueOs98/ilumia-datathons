@@ -1,0 +1,21 @@
+# Time Series Query Processor Lambda Requirements
+
+# InfluxDB client
+influxdb-client==1.38.0
+
+# AWS SDK
+boto3==1.34.0
+botocore==1.34.0
+
+# Data processing
+pandas==2.1.4
+numpy==1.24.4
+
+# JSON handling
+orjson==3.9.10
+
+# Logging and monitoring
+structlog==23.2.0
+
+# Shared utilities (installed as layer)
+# src/shared_utils - installed via Lambda layer

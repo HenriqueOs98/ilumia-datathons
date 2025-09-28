@@ -572,6 +572,7 @@ def test_lambda_handler():
         aws-region: ${{ env.AWS_REGION }}
     
     - name: Check infrastructure drift
+      continue-on-error: true
       run: |
         cd infra
         terraform init

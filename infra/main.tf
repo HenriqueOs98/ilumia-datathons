@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.1"
+    }
   }
 }
 
@@ -33,6 +37,12 @@ provider "aws" {
       Purpose     = "Replica"
     }
   }
+}
+
+# Generate a random password for InfluxDB if not provided
+resource "random_password" "influxdb" {
+  length  = 16
+  special = true
 }
 
 # VPC Infrastructure
@@ -72,7 +82,7 @@ module "timestream_influxdb" {
   project_name            = var.project_name
   vpc_id                  = module.vpc.vpc_id
   subnet_ids              = module.vpc.private_subnet_ids
-  password                = var.influxdb_password
+  password                = var.influxdb_password == null ? random_password.influxdb.result : var.influxdb_password
   influxdb_token          = var.influxdb_token
   db_instance_class       = var.influxdb_instance_class
   allocated_storage       = var.influxdb_allocated_storage

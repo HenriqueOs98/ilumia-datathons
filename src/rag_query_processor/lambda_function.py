@@ -2,12 +2,15 @@
 RAG Query Processor Lambda Function
 
 This Lambda function interfaces with Amazon Bedrock Knowledge Base to process
-natural language queries using Retrieval-Augmented Generation (RAG).
+natural language queries using Retrieval-Augmented Generation (RAG) with
+enhanced time series data integration.
 
 Features:
 - Query preprocessing and validation
 - Knowledge Base retrieval and generation
-- Response formatting with source citations
+- Time series context detection and InfluxDB query integration
+- Enhanced response formatting with time series data
+- Citation and source tracking for time series insights
 - Comprehensive error handling and logging
 - Query performance metrics
 """
@@ -21,10 +24,39 @@ from typing import Dict, List, Any, Optional
 from botocore.exceptions import ClientError
 import os
 import re
+import sys
+
+# Import shared utilities for time series integration
+sys.path.append('/opt/python')
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+try:
+    from shared_utils import (
+        QueryTranslator,
+        QueryLanguage,
+        create_query_translator,
+        translate_natural_language_query
+    )
+    from shared_utils.logging_config import setup_logging
+except ImportError:
+    # Fallback for testing environment
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared_utils'))
+    from query_translator import (
+        QueryTranslator,
+        QueryLanguage,
+        create_query_translator,
+        translate_natural_language_query
+    )
+    from logging_config import setup_logging
 
 # Configure logging
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+try:
+    setup_logging()
+    logger = logging.getLogger(__name__)
+except:
+    # Fallback logging setup
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
 
 # AWS clients will be initialized lazily
 bedrock_runtime = None
@@ -48,7 +80,7 @@ def get_env_vars():
 
 
 class QueryProcessor:
-    """Handles RAG query processing with Knowledge Base"""
+    """Handles RAG query processing with Knowledge Base and time series integration"""
     
     def __init__(self):
         global bedrock_runtime, cloudwatch
@@ -60,6 +92,19 @@ class QueryProcessor:
         self.bedrock_runtime = bedrock_runtime
         self.cloudwatch = cloudwatch
         self.env_vars = get_env_vars()
+        
+        # Initialize time series query translator
+        self.query_translator = None
+        self.timeseries_lambda_name = os.environ.get('TIMESERIES_LAMBDA_NAME', 'ons-timeseries-query-processor')
+        
+        # Time series keywords for context detection
+        self.timeseries_keywords = {
+            'generation', 'consumption', 'demand', 'power', 'energy', 'capacity',
+            'transmission', 'losses', 'efficiency', 'renewable', 'fossil', 'hydro',
+            'solar', 'wind', 'thermal', 'nuclear', 'trend', 'peak', 'maximum',
+            'minimum', 'average', 'total', 'hourly', 'daily', 'monthly', 'yearly',
+            'region', 'southeast', 'northeast', 'north', 'south', 'central'
+        }
         
     def preprocess_query(self, query: str) -> Dict[str, Any]:
         """
@@ -109,8 +154,162 @@ class QueryProcessor:
             result['query_type'] = 'question'
         else:
             result['query_type'] = 'general'
-            
+        
+        # Detect time series context
+        result['has_timeseries_context'] = self._detect_timeseries_context(processed_query)
+        result['timeseries_confidence'] = self._calculate_timeseries_confidence(processed_query)
+        
         return result
+    
+    def _detect_timeseries_context(self, query: str) -> bool:
+        """
+        Detect if the query has time series context.
+        
+        Args:
+            query: Processed query string
+            
+        Returns:
+            True if query appears to be time series related
+        """
+        query_lower = query.lower()
+        
+        # Count time series keywords
+        keyword_count = sum(1 for keyword in self.timeseries_keywords if keyword in query_lower)
+        
+        # Check for time-related patterns
+        time_patterns = [
+            r'\b(last|past|previous)\s+(hour|day|week|month|year)s?\b',
+            r'\b(today|yesterday|tomorrow)\b',
+            r'\b\d{4}-\d{2}-\d{2}\b',  # Date pattern
+            r'\b(trend|pattern|history|over time)\b',
+            r'\b(peak|maximum|minimum|average|total)\b',
+            r'\b(generation|consumption|demand|power|energy)\b'
+        ]
+        
+        time_pattern_matches = sum(1 for pattern in time_patterns if re.search(pattern, query_lower))
+        
+        # Determine if it's time series related
+        return keyword_count >= 2 or time_pattern_matches >= 1
+    
+    def _calculate_timeseries_confidence(self, query: str) -> float:
+        """
+        Calculate confidence score for time series context.
+        
+        Args:
+            query: Processed query string
+            
+        Returns:
+            Confidence score between 0 and 1
+        """
+        query_lower = query.lower()
+        
+        # Base score from keyword matches
+        keyword_matches = sum(1 for keyword in self.timeseries_keywords if keyword in query_lower)
+        keyword_score = min(0.8, keyword_matches * 0.15)
+        
+        # Boost for specific patterns
+        pattern_boosts = {
+            r'\b(generation|consumption|demand)\b': 0.3,
+            r'\b(trend|pattern|over time)\b': 0.2,
+            r'\b(peak|maximum|minimum)\b': 0.15,
+            r'\b(last|past)\s+(day|week|month|year)\b': 0.2,
+            r'\b(region|southeast|northeast)\b': 0.1,
+            r'\b(hydro|solar|wind|thermal)\b': 0.15
+        }
+        
+        pattern_score = 0
+        for pattern, boost in pattern_boosts.items():
+            if re.search(pattern, query_lower):
+                pattern_score += boost
+        
+        total_score = min(1.0, keyword_score + pattern_score)
+        return round(total_score, 3)
+    
+    def _get_query_translator(self):
+        """Get or create query translator with lazy initialization."""
+        if self.query_translator is None:
+            try:
+                self.query_translator = create_query_translator()
+                logger.info("Query translator initialized for RAG processor")
+            except Exception as e:
+                logger.error(f"Failed to initialize query translator: {e}")
+                self.query_translator = None
+        
+        return self.query_translator
+    
+    def query_timeseries_data(self, query: str) -> Dict[str, Any]:
+        """
+        Query time series data using the time series query processor.
+        
+        Args:
+            query: Natural language query
+            
+        Returns:
+            Time series query results
+        """
+        try:
+            # Try to use the query translator directly first
+            translator = self._get_query_translator()
+            if translator:
+                try:
+                    translation_result = translator.translate_query(query, QueryLanguage.FLUX)
+                    
+                    return {
+                        'success': True,
+                        'query_type': translation_result.get('query_type', 'unknown'),
+                        'confidence_score': translation_result.get('confidence_score', 0),
+                        'influxdb_query': translation_result.get('query', ''),
+                        'parameters': translation_result.get('parameters', {}),
+                        'template_description': translation_result.get('template_description', ''),
+                        'time_series_data': [],  # Would be populated by actual InfluxDB execution
+                        'source': 'query_translator'
+                    }
+                except Exception as e:
+                    logger.warning(f"Direct query translation failed: {e}")
+            
+            # Fallback to Lambda invocation if available
+            try:
+                lambda_client = boto3.client('lambda')
+                
+                payload = {
+                    'body': json.dumps({
+                        'question': query,
+                        'language': 'flux',
+                        'use_cache': True
+                    })
+                }
+                
+                response = lambda_client.invoke(
+                    FunctionName=self.timeseries_lambda_name,
+                    InvocationType='RequestResponse',
+                    Payload=json.dumps(payload)
+                )
+                
+                result = json.loads(response['Payload'].read())
+                
+                if result.get('statusCode') == 200:
+                    body = json.loads(result['body'])
+                    return {
+                        'success': True,
+                        'query_type': body.get('query_metadata', {}).get('query_type', 'unknown'),
+                        'confidence_score': body.get('query_metadata', {}).get('confidence_score', 0),
+                        'influxdb_query': body.get('influxdb_query', ''),
+                        'time_series_data': body.get('time_series_data', []),
+                        'record_count': body.get('record_count', 0),
+                        'processing_time_ms': body.get('processing_time_ms', 0),
+                        'source': 'lambda_invocation'
+                    }
+                else:
+                    logger.error(f"Time series Lambda returned error: {result}")
+                    return {'success': False, 'error': 'Time series query failed', 'source': 'lambda_invocation'}
+                    
+            except Exception as e:
+                logger.warning(f"Lambda invocation failed: {e}")
+                return {'success': False, 'error': str(e), 'source': 'lambda_invocation'}
+                
+        except Exception as e:
+            logger.error(f"Time series query failed: {e}")
+            return {'success': False, 'error': str(e), 'source': 'error'}
         
     def retrieve_context(self, query: str) -> Dict[str, Any]:
         """
@@ -167,12 +366,13 @@ class QueryProcessor:
                 'max_score': 0
             }
             
-    def generate_response(self, query: str) -> Dict[str, Any]:
+    def generate_response(self, query: str, query_result: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Generate response using RAG with Knowledge Base
+        Generate response using RAG with Knowledge Base and time series integration
         
         Args:
             query: Processed query string
+            query_result: Query preprocessing results
             
         Returns:
             Dict containing generated response and metadata
@@ -180,8 +380,31 @@ class QueryProcessor:
         try:
             start_time = time.time()
             
+            # Check if this is a time series query
+            timeseries_data = None
+            if query_result.get('has_timeseries_context', False):
+                logger.info(f"Detected time series context with confidence {query_result.get('timeseries_confidence', 0)}")
+                timeseries_data = self.query_timeseries_data(query)
+            
+            # Enhance query with time series context if available
+            enhanced_query = query
+            if timeseries_data and timeseries_data.get('success', False):
+                # Add time series context to the query for better RAG response
+                ts_context = f"\n\nTime series analysis context:\n"
+                ts_context += f"Query type: {timeseries_data.get('query_type', 'unknown')}\n"
+                ts_context += f"Template: {timeseries_data.get('template_description', '')}\n"
+                
+                if timeseries_data.get('time_series_data'):
+                    ts_context += f"Found {len(timeseries_data['time_series_data'])} time series data points.\n"
+                    # Add sample data points for context
+                    sample_data = timeseries_data['time_series_data'][:3]  # First 3 points
+                    for i, point in enumerate(sample_data):
+                        ts_context += f"Sample {i+1}: {point.get('timestamp', 'N/A')} - {point.get('field', 'value')}: {point.get('value', 'N/A')}\n"
+                
+                enhanced_query = f"{query}{ts_context}"
+            
             response = self.bedrock_runtime.retrieve_and_generate(
-                input={'text': query},
+                input={'text': enhanced_query},
                 retrieveAndGenerateConfiguration={
                     'type': 'KNOWLEDGE_BASE',
                     'knowledgeBaseConfiguration': {
@@ -209,15 +432,33 @@ class QueryProcessor:
                     processed_citations.append({
                         'content': reference.get('content', {}).get('text', ''),
                         'location': reference.get('location', {}),
-                        'score': reference.get('metadata', {}).get('score', 0)
+                        'score': reference.get('metadata', {}).get('score', 0),
+                        'source_type': 'knowledge_base'
                     })
+            
+            # Add time series data as citations if available
+            if timeseries_data and timeseries_data.get('success', False):
+                ts_citation = {
+                    'content': f"Time series query: {timeseries_data.get('query_type', 'unknown')} analysis",
+                    'location': {
+                        'type': 'time_series_data',
+                        'query_type': timeseries_data.get('query_type', 'unknown'),
+                        'influxdb_query': timeseries_data.get('influxdb_query', ''),
+                        'record_count': len(timeseries_data.get('time_series_data', []))
+                    },
+                    'score': timeseries_data.get('confidence_score', 0),
+                    'source_type': 'time_series'
+                }
+                processed_citations.append(ts_citation)
             
             return {
                 'success': True,
                 'answer': output.get('text', ''),
                 'citations': processed_citations,
                 'generation_time_ms': round(generation_time * 1000, 2),
-                'citation_count': len(processed_citations)
+                'citation_count': len(processed_citations),
+                'timeseries_data': timeseries_data,
+                'has_timeseries_integration': timeseries_data is not None and timeseries_data.get('success', False)
             }
             
         except ClientError as e:
@@ -228,14 +469,16 @@ class QueryProcessor:
                 'answer': '',
                 'citations': [],
                 'generation_time_ms': 0,
-                'citation_count': 0
+                'citation_count': 0,
+                'timeseries_data': None,
+                'has_timeseries_integration': False
             }
             
     def format_response(self, query_result: Dict[str, Any], 
                        generation_result: Dict[str, Any],
                        query_id: str) -> Dict[str, Any]:
         """
-        Format the final response with all metadata
+        Format the final response with all metadata including time series data
         
         Args:
             query_result: Query preprocessing results
@@ -253,6 +496,11 @@ class QueryProcessor:
             if citation_scores:
                 confidence_score = min(0.95, max(citation_scores) * (1 + len(citation_scores) * 0.1))
         
+        # Boost confidence if time series data is integrated
+        if generation_result.get('has_timeseries_integration', False):
+            timeseries_confidence = query_result.get('timeseries_confidence', 0)
+            confidence_score = min(0.98, confidence_score + (timeseries_confidence * 0.2))
+        
         response = {
             'query_id': query_id,
             'question': query_result['original_query'],
@@ -264,18 +512,51 @@ class QueryProcessor:
             'metadata': {
                 'query_type': query_result.get('query_type', 'general'),
                 'citation_count': generation_result.get('citation_count', 0),
-                'model_used': self.env_vars['MODEL_ARN'].split('/')[-1] if self.env_vars['MODEL_ARN'] else 'unknown'
+                'model_used': self.env_vars['MODEL_ARN'].split('/')[-1] if self.env_vars['MODEL_ARN'] else 'unknown',
+                'has_timeseries_context': query_result.get('has_timeseries_context', False),
+                'timeseries_confidence': query_result.get('timeseries_confidence', 0),
+                'has_timeseries_integration': generation_result.get('has_timeseries_integration', False)
             }
         }
         
+        # Add time series data if available
+        timeseries_data = generation_result.get('timeseries_data')
+        if timeseries_data and timeseries_data.get('success', False):
+            response['time_series_data'] = {
+                'query_type': timeseries_data.get('query_type', 'unknown'),
+                'confidence_score': timeseries_data.get('confidence_score', 0),
+                'influxdb_query': timeseries_data.get('influxdb_query', ''),
+                'data_points': timeseries_data.get('time_series_data', []),
+                'record_count': len(timeseries_data.get('time_series_data', [])),
+                'processing_time_ms': timeseries_data.get('processing_time_ms', 0),
+                'source': timeseries_data.get('source', 'unknown')
+            }
+        
         # Format sources from citations
         for i, citation in enumerate(generation_result.get('citations', [])):
-            source = {
-                'id': i + 1,
-                'relevance_score': round(citation.get('score', 0), 3),
-                'excerpt': citation.get('content', '')[:200] + '...' if len(citation.get('content', '')) > 200 else citation.get('content', ''),
-                'location': citation.get('location', {})
-            }
+            source_type = citation.get('source_type', 'knowledge_base')
+            
+            if source_type == 'time_series':
+                # Special formatting for time series sources
+                source = {
+                    'id': i + 1,
+                    'type': 'time_series',
+                    'relevance_score': round(citation.get('score', 0), 3),
+                    'description': citation.get('content', ''),
+                    'time_series_metadata': citation.get('location', {}),
+                    'query_type': citation.get('location', {}).get('query_type', 'unknown'),
+                    'record_count': citation.get('location', {}).get('record_count', 0)
+                }
+            else:
+                # Standard knowledge base source formatting
+                source = {
+                    'id': i + 1,
+                    'type': 'knowledge_base',
+                    'relevance_score': round(citation.get('score', 0), 3),
+                    'excerpt': citation.get('content', '')[:200] + '...' if len(citation.get('content', '')) > 200 else citation.get('content', ''),
+                    'location': citation.get('location', {})
+                }
+            
             response['sources'].append(source)
             
         return response
@@ -433,8 +714,8 @@ def handle_query_request(event: Dict[str, Any]) -> Dict[str, Any]:
                 })
             }
         
-        # Generate response using RAG
-        generation_result = processor.generate_response(query_result['processed_query'])
+        # Generate response using RAG with time series integration
+        generation_result = processor.generate_response(query_result['processed_query'], query_result)
         
         if not generation_result['success']:
             logger.error(f"RAG generation failed for query {query_id}: {generation_result.get('error')}")

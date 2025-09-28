@@ -574,7 +574,7 @@ def test_lambda_handler():
       run: |
         cd infra
         terraform init
-        terraform plan -var="environment=prod" -detailed-exitcode
+        terraform plan -var="environment=prod" -var="aws_region=${{ env.AWS_REGION }}" -detailed-exitcode
         PLAN_EXIT_CODE=$?
         
         if [ $PLAN_EXIT_CODE -eq 2 ]; then

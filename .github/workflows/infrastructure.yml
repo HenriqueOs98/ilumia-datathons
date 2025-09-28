@@ -226,7 +226,7 @@ jobs:
       run: |
         terraform plan \
           -var="environment=${{ matrix.environment }}" \
-          -var="region=${{ env.AWS_REGION }}" \
+          -var="aws_region=${{ env.AWS_REGION }}" \
           -out=tfplan-${{ matrix.environment }} \
           -detailed-exitcode
         echo "exitcode=$?" >> $GITHUB_OUTPUT
@@ -356,7 +356,7 @@ jobs:
       run: |
         terraform plan \
           -var="environment=staging" \
-          -var="region=${{ env.AWS_REGION }}" \
+          -var="aws_region=${{ env.AWS_REGION }}" \
           -out=tfplan-staging
       working-directory: infra
     
@@ -418,7 +418,7 @@ jobs:
       run: |
         terraform plan \
           -var="environment=prod" \
-          -var="region=${{ env.AWS_REGION }}" \
+          -var="aws_region=${{ env.AWS_REGION }}" \
           -out=tfplan-prod \
           -detailed-exitcode
         echo "exitcode=$?" >> $GITHUB_OUTPUT

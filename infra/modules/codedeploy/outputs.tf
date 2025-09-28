@@ -1,6 +1,6 @@
 output "codedeploy_application_name" {
   description = "Name of the CodeDeploy application"
-  value       = aws_codedeploy_application.lambda_app.name
+  value       = aws_codedeploy_app.lambda_app.name
 }
 
 output "codedeploy_service_role_arn" {

@@ -1,7 +1,7 @@
 # Timestream Database
 resource "aws_timestreamwrite_database" "main" {
   database_name = "${var.project_name}_${var.environment}_energy_data"
-  
+
   tags = {
     Name        = "${var.project_name}-${var.environment}-timestream-db"
     Environment = var.environment
@@ -21,10 +21,10 @@ resource "aws_timestreamwrite_table" "generation_data" {
 
   magnetic_store_write_properties {
     enable_magnetic_store_writes = true
-    
+
     magnetic_store_rejected_data_location {
       s3_configuration {
-        bucket_name = var.rejected_data_bucket
+        bucket_name       = var.rejected_data_bucket
         object_key_prefix = "timestream-rejected/generation/"
       }
     }
@@ -49,10 +49,10 @@ resource "aws_timestreamwrite_table" "consumption_data" {
 
   magnetic_store_write_properties {
     enable_magnetic_store_writes = true
-    
+
     magnetic_store_rejected_data_location {
       s3_configuration {
-        bucket_name = var.rejected_data_bucket
+        bucket_name       = var.rejected_data_bucket
         object_key_prefix = "timestream-rejected/consumption/"
       }
     }
@@ -77,10 +77,10 @@ resource "aws_timestreamwrite_table" "transmission_data" {
 
   magnetic_store_write_properties {
     enable_magnetic_store_writes = true
-    
+
     magnetic_store_rejected_data_location {
       s3_configuration {
-        bucket_name = var.rejected_data_bucket
+        bucket_name       = var.rejected_data_bucket
         object_key_prefix = "timestream-rejected/transmission/"
       }
     }

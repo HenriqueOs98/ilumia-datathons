@@ -143,43 +143,43 @@ resource "aws_appconfig_hosted_configuration_version" "feature_flags_initial" {
   content = jsonencode({
     flags = {
       enable_new_api_endpoint = {
-        name = "enable_new_api_endpoint"
+        name    = "enable_new_api_endpoint"
         enabled = false
         variants = {
           on = {
-            name = "on"
+            name  = "on"
             value = true
           }
           off = {
-            name = "off"
+            name  = "off"
             value = false
           }
         }
       }
       enable_enhanced_processing = {
-        name = "enable_enhanced_processing"
+        name    = "enable_enhanced_processing"
         enabled = false
         variants = {
           on = {
-            name = "on"
+            name  = "on"
             value = true
           }
           off = {
-            name = "off"
+            name  = "off"
             value = false
           }
         }
       }
       enable_advanced_monitoring = {
-        name = "enable_advanced_monitoring"
+        name    = "enable_advanced_monitoring"
         enabled = true
         variants = {
           on = {
-            name = "on"
+            name  = "on"
             value = true
           }
           off = {
-            name = "off"
+            name  = "off"
             value = false
           }
         }
@@ -209,15 +209,15 @@ resource "aws_appconfig_hosted_configuration_version" "app_settings_initial" {
 
   content = jsonencode({
     deployment = {
-      canary_percentage = 10
+      canary_percentage  = 10
       rollback_threshold = 5
     }
     processing = {
-      batch_size = 100
+      batch_size      = 100
       timeout_seconds = 300
     }
     monitoring = {
-      log_level = "INFO"
+      log_level       = "INFO"
       metrics_enabled = true
     }
   })

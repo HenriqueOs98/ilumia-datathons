@@ -17,7 +17,7 @@ variable "memory_retention_hours" {
 variable "magnetic_retention_days" {
   description = "Magnetic store retention period in days"
   type        = number
-  default     = 2555  # 7 years
+  default     = 2555 # 7 years
 }
 
 variable "processed_data_bucket" {

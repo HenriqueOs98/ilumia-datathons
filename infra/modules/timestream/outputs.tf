@@ -36,8 +36,8 @@ output "lambda_log_group_name" {
 output "table_arns" {
   description = "ARNs of all Timestream tables"
   value = {
-    generation_data  = aws_timestreamwrite_table.generation_data.arn
-    consumption_data = aws_timestreamwrite_table.consumption_data.arn
+    generation_data   = aws_timestreamwrite_table.generation_data.arn
+    consumption_data  = aws_timestreamwrite_table.consumption_data.arn
     transmission_data = aws_timestreamwrite_table.transmission_data.arn
   }
 }

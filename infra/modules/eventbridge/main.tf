@@ -98,7 +98,7 @@ resource "aws_cloudwatch_event_target" "step_functions_target" {
       etag   = "$.detail.object.etag"
       time   = "$.time"
     }
-    
+
     input_template = jsonencode({
       Records = [{
         eventSource = "aws:s3"
@@ -115,7 +115,7 @@ resource "aws_cloudwatch_event_target" "step_functions_target" {
           }
         }
       }]
-      eventBridgeSource = true
+      eventBridgeSource   = true
       processingTimestamp = "<time>"
     })
   }
@@ -186,7 +186,7 @@ resource "aws_cloudwatch_event_target" "processing_failure_alert" {
       file       = "$.detail.inputFile"
       time       = "$.time"
     }
-    
+
     input_template = jsonencode({
       alert_type    = "Processing Failure"
       timestamp     = "<time>"

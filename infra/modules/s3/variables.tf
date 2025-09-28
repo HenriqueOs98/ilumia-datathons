@@ -29,11 +29,11 @@ variable "enable_mfa_delete" {
 variable "raw_data_retention_days" {
   description = "Retention period for raw data in days"
   type        = number
-  default     = 2555  # 7 years
+  default     = 2555 # 7 years
 }
 
 variable "processed_data_retention_days" {
   description = "Retention period for processed data in days"
   type        = number
-  default     = 2555  # 7 years
+  default     = 2555 # 7 years
 }

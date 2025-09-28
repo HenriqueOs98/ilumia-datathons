@@ -140,14 +140,14 @@ resource "aws_sfn_state_machine" "data_processing_pipeline" {
         Type = "Choice"
         Choices = [
           {
-            Variable      = "$.processingType"
-            StringEquals  = "lambda"
-            Next          = "ProcessStructuredData"
+            Variable     = "$.processingType"
+            StringEquals = "lambda"
+            Next         = "ProcessStructuredData"
           },
           {
-            Variable      = "$.processingType"
-            StringEquals  = "batch"
-            Next          = "ProcessUnstructuredData"
+            Variable     = "$.processingType"
+            StringEquals = "batch"
+            Next         = "ProcessUnstructuredData"
           }
         ]
         Default = "NotifyFailure"
@@ -190,8 +190,8 @@ resource "aws_sfn_state_machine" "data_processing_pipeline" {
           JobName       = "${var.project_name}-pdf-processing"
           JobQueue      = var.batch_job_queue_arn
           Parameters = {
-            "inputFile.$"   = "$.inputFile"
-            "outputPath.$"  = "$.outputPath"
+            "inputFile.$"  = "$.inputFile"
+            "outputPath.$" = "$.outputPath"
           }
         }
         Retry = [
@@ -258,7 +258,7 @@ resource "aws_sfn_state_machine" "data_processing_pipeline" {
 
       # Success state
       ProcessingComplete = {
-        Type = "Succeed"
+        Type    = "Succeed"
         Comment = "Data processing pipeline completed successfully"
       }
 
@@ -269,11 +269,11 @@ resource "aws_sfn_state_machine" "data_processing_pipeline" {
         Parameters = {
           TopicArn = aws_sns_topic.processing_dlq.arn
           Message = {
-            "executionArn.$"   = "$$.Execution.Name"
-            "stateMachine.$"   = "$$.StateMachine.Name"
-            "error.$"          = "$.error"
-            "input.$"          = "$$.Execution.Input"
-            "timestamp.$"      = "$$.State.EnteredTime"
+            "executionArn.$" = "$$.Execution.Name"
+            "stateMachine.$" = "$$.StateMachine.Name"
+            "error.$"        = "$.error"
+            "input.$"        = "$$.Execution.Input"
+            "timestamp.$"    = "$$.State.EnteredTime"
           }
           Subject = "ONS Data Processing Pipeline Failure"
         }

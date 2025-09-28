@@ -229,13 +229,13 @@ resource "aws_bedrockagent_knowledge_base" "ons_knowledge_base" {
 resource "aws_bedrockagent_data_source" "s3_data_source" {
   knowledge_base_id = aws_bedrockagent_knowledge_base.ons_knowledge_base.id
   name              = "${var.project_name}-${var.environment}-s3-data-source"
-  
+
   description = "S3 data source for processed ONS energy data"
 
   data_source_configuration {
     s3_configuration {
       bucket_arn = "arn:aws:s3:::${var.s3_processed_bucket}"
-      
+
       # Include only Parquet files from processed zone
       inclusion_prefixes = ["processed/"]
     }
@@ -247,7 +247,7 @@ resource "aws_bedrockagent_data_source" "s3_data_source" {
     chunking_configuration {
       chunking_strategy = "FIXED_SIZE"
       fixed_size_chunking_configuration {
-        max_tokens     = 300
+        max_tokens         = 300
         overlap_percentage = 20
       }
     }
@@ -256,8 +256,4 @@ resource "aws_bedrockagent_data_source" "s3_data_source" {
   depends_on = [
     aws_bedrockagent_knowledge_base.ons_knowledge_base
   ]
-
-  tags = {
-    Name = "${var.project_name}-${var.environment}-s3-data-source"
-  }
 }

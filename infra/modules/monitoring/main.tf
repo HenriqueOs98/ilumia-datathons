@@ -4,7 +4,7 @@
 # SNS Topics for different alert severities
 resource "aws_sns_topic" "critical_alerts" {
   name = "${var.environment}-ons-critical-alerts"
-  
+
   tags = {
     Environment = var.environment
     Project     = "ons-data-platform"
@@ -14,7 +14,7 @@ resource "aws_sns_topic" "critical_alerts" {
 
 resource "aws_sns_topic" "warning_alerts" {
   name = "${var.environment}-ons-warning-alerts"
-  
+
   tags = {
     Environment = var.environment
     Project     = "ons-data-platform"
@@ -41,7 +41,7 @@ resource "aws_sns_topic_subscription" "warning_email" {
 resource "aws_cloudwatch_log_group" "lambda_router" {
   name              = "/aws/lambda/${var.environment}-ons-lambda-router"
   retention_in_days = var.log_retention_days
-  
+
   tags = {
     Environment = var.environment
     Project     = "ons-data-platform"
@@ -52,7 +52,7 @@ resource "aws_cloudwatch_log_group" "lambda_router" {
 resource "aws_cloudwatch_log_group" "lambda_processor" {
   name              = "/aws/lambda/${var.environment}-ons-structured-processor"
   retention_in_days = var.log_retention_days
-  
+
   tags = {
     Environment = var.environment
     Project     = "ons-data-platform"
@@ -63,7 +63,7 @@ resource "aws_cloudwatch_log_group" "lambda_processor" {
 resource "aws_cloudwatch_log_group" "lambda_api" {
   name              = "/aws/lambda/${var.environment}-ons-api-handler"
   retention_in_days = var.log_retention_days
-  
+
   tags = {
     Environment = var.environment
     Project     = "ons-data-platform"
@@ -74,7 +74,7 @@ resource "aws_cloudwatch_log_group" "lambda_api" {
 resource "aws_cloudwatch_log_group" "lambda_timestream" {
   name              = "/aws/lambda/${var.environment}-ons-timestream-loader"
   retention_in_days = var.log_retention_days
-  
+
   tags = {
     Environment = var.environment
     Project     = "ons-data-platform"
@@ -85,7 +85,7 @@ resource "aws_cloudwatch_log_group" "lambda_timestream" {
 resource "aws_cloudwatch_log_group" "step_functions" {
   name              = "/aws/stepfunctions/${var.environment}-ons-processing-workflow"
   retention_in_days = var.log_retention_days
-  
+
   tags = {
     Environment = var.environment
     Project     = "ons-data-platform"
@@ -96,7 +96,7 @@ resource "aws_cloudwatch_log_group" "step_functions" {
 resource "aws_cloudwatch_log_group" "api_gateway" {
   name              = "API-Gateway-Execution-Logs_${var.api_gateway_id}/${var.environment}"
   retention_in_days = var.log_retention_days
-  
+
   tags = {
     Environment = var.environment
     Project     = "ons-data-platform"
@@ -157,8 +157,7 @@ resource "aws_cloudwatch_dashboard" "ons_platform" {
     ]
   })
 }
-# CloudWatc
-h Alarms for Lambda Functions
+# CloudWatch Alarms for Lambda Functions
 
 # Lambda Router Function Alarms
 resource "aws_cloudwatch_metric_alarm" "lambda_router_errors" {
@@ -193,7 +192,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_router_duration" {
   namespace           = "AWS/Lambda"
   period              = "300"
   statistic           = "Average"
-  threshold           = "30000"  # 30 seconds
+  threshold           = "30000" # 30 seconds
   alarm_description   = "This metric monitors lambda router duration"
   alarm_actions       = [aws_sns_topic.warning_alerts.arn]
   ok_actions          = [aws_sns_topic.warning_alerts.arn]
@@ -242,7 +241,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_processor_duration" {
   namespace           = "AWS/Lambda"
   period              = "300"
   statistic           = "Average"
-  threshold           = "600000"  # 10 minutes
+  threshold           = "600000" # 10 minutes
   alarm_description   = "This metric monitors lambda processor duration"
   alarm_actions       = [aws_sns_topic.warning_alerts.arn]
   ok_actions          = [aws_sns_topic.warning_alerts.arn]
@@ -267,7 +266,7 @@ resource "aws_cloudwatch_metric_alarm" "api_gateway_latency" {
   namespace           = "AWS/ApiGateway"
   period              = "300"
   statistic           = "Average"
-  threshold           = "10000"  # 10 seconds
+  threshold           = "10000" # 10 seconds
   alarm_description   = "This metric monitors API Gateway latency"
   alarm_actions       = [aws_sns_topic.critical_alerts.arn]
   ok_actions          = [aws_sns_topic.critical_alerts.arn]
@@ -364,7 +363,7 @@ resource "aws_cloudwatch_metric_alarm" "step_functions_execution_time" {
   namespace           = "AWS/States"
   period              = "300"
   statistic           = "Average"
-  threshold           = "1800000"  # 30 minutes
+  threshold           = "1800000" # 30 minutes
   alarm_description   = "This metric monitors Step Functions execution time"
   alarm_actions       = [aws_sns_topic.warning_alerts.arn]
   ok_actions          = [aws_sns_topic.warning_alerts.arn]
@@ -459,44 +458,42 @@ resource "aws_cloudwatch_metric_alarm" "data_quality_issues_alarm" {
     Component   = "monitoring"
   }
 }
-# Cost Mo
-nitoring and Optimization
+# Cost Monitoring and Optimization
 
 # Budget for the ONS Data Platform
 resource "aws_budgets_budget" "ons_platform_budget" {
-  name         = "${var.environment}-ons-data-platform-budget"
-  budget_type  = "COST"
-  limit_amount = var.monthly_budget_limit
-  limit_unit   = "USD"
-  time_unit    = "MONTHLY"
+  name              = "${var.environment}-ons-data-platform-budget"
+  budget_type       = "COST"
+  limit_amount      = var.monthly_budget_limit
+  limit_unit        = "USD"
+  time_unit         = "MONTHLY"
   time_period_start = formatdate("YYYY-MM-01_00:00", timestamp())
 
-  cost_filters = {
-    Tag = [
-      "Project:ons-data-platform"
-    ]
+  cost_filter {
+    name   = "Service"
+    values = ["Amazon Simple Storage Service", "AWS Lambda", "Amazon API Gateway"]
   }
 
   notification {
     comparison_operator        = "GREATER_THAN"
-    threshold                 = 80
-    threshold_type            = "PERCENTAGE"
-    notification_type         = "ACTUAL"
+    threshold                  = 80
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
     subscriber_email_addresses = var.cost_alert_emails
   }
 
   notification {
     comparison_operator        = "GREATER_THAN"
-    threshold                 = 100
-    threshold_type            = "PERCENTAGE"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
     notification_type          = "FORECASTED"
     subscriber_email_addresses = var.cost_alert_emails
   }
 
   notification {
     comparison_operator        = "GREATER_THAN"
-    threshold                 = 120
-    threshold_type            = "PERCENTAGE"
+    threshold                  = 120
+    threshold_type             = "PERCENTAGE"
     notification_type          = "ACTUAL"
     subscriber_email_addresses = var.critical_alert_emails
   }
@@ -509,61 +506,8 @@ resource "aws_budgets_budget" "ons_platform_budget" {
 }
 
 # Cost Anomaly Detection
-resource "aws_ce_anomaly_detector" "ons_platform_anomaly" {
-  name         = "${var.environment}-ons-platform-cost-anomaly"
-  monitor_type = "DIMENSIONAL"
-
-  specification = jsonencode({
-    Dimension = "SERVICE"
-    MatchOptions = ["EQUALS"]
-    Values = [
-      "Amazon Simple Storage Service",
-      "AWS Lambda",
-      "Amazon API Gateway",
-      "AWS Step Functions",
-      "Amazon Timestream",
-      "Amazon Bedrock",
-      "Amazon OpenSearch Service"
-    ]
-  })
-
-  tags = {
-    Environment = var.environment
-    Project     = "ons-data-platform"
-    Component   = "cost-monitoring"
-  }
-}
-
-# Cost Anomaly Subscription
-resource "aws_ce_anomaly_subscription" "ons_platform_anomaly_subscription" {
-  name      = "${var.environment}-ons-platform-anomaly-subscription"
-  frequency = "DAILY"
-  
-  monitor_arn_list = [
-    aws_ce_anomaly_detector.ons_platform_anomaly.arn
-  ]
-  
-  subscriber {
-    type    = "EMAIL"
-    address = var.cost_alert_emails[0]
-  }
-
-  threshold_expression {
-    and {
-      dimension {
-        key           = "ANOMALY_TOTAL_IMPACT_ABSOLUTE"
-        values        = [tostring(var.cost_anomaly_threshold)]
-        match_options = ["GREATER_THAN_OR_EQUAL"]
-      }
-    }
-  }
-
-  tags = {
-    Environment = var.environment
-    Project     = "ons-data-platform"
-    Component   = "cost-monitoring"
-  }
-}
+# Cost monitoring is handled through the budget alerts above
+# AWS Cost Anomaly Detection resources are not available in all regions
 
 # CloudWatch Metrics for Cost Optimization
 resource "aws_cloudwatch_log_metric_filter" "lambda_cold_starts" {
@@ -683,16 +627,16 @@ resource "aws_cloudwatch_dashboard" "cost_optimization" {
 
 # Lambda Function for Cost Optimization Recommendations
 resource "aws_lambda_function" "cost_optimizer" {
-  filename         = "cost_optimizer.zip"
-  function_name    = "${var.environment}-ons-cost-optimizer"
-  role            = aws_iam_role.cost_optimizer_role.arn
-  handler         = "lambda_function.lambda_handler"
-  runtime         = "python3.11"
-  timeout         = 300
+  filename      = "cost_optimizer.zip"
+  function_name = "${var.environment}-ons-cost-optimizer"
+  role          = aws_iam_role.cost_optimizer_role.arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 300
 
   environment {
     variables = {
-      ENVIRONMENT = var.environment
+      ENVIRONMENT   = var.environment
       SNS_TOPIC_ARN = aws_sns_topic.warning_alerts.arn
     }
   }

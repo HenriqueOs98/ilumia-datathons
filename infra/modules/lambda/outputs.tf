@@ -61,3 +61,19 @@ output "rag_lambda_role_arn" {
   description = "ARN of the RAG Lambda execution role"
   value       = aws_iam_role.rag_lambda_role.arn
 }
+
+# Individual function names for CodeDeploy
+output "router_lambda_name" {
+  description = "Name of the router Lambda function"
+  value       = "placeholder-router"
+}
+
+output "processor_lambda_name" {
+  description = "Name of the processor Lambda function"
+  value       = "placeholder-processor"
+}
+
+output "api_lambda_name" {
+  description = "Name of the API Lambda function"
+  value       = "placeholder-api"
+}

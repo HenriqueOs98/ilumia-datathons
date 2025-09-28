@@ -1,6 +1,6 @@
 # CodeDeploy Application and Deployment Groups for Lambda Blue-Green Deployments
 
-resource "aws_codedeploy_application" "lambda_app" {
+resource "aws_codedeploy_app" "lambda_app" {
   compute_platform = "Lambda"
   name             = "${var.project_name}-lambda-app"
 
@@ -85,8 +85,8 @@ resource "aws_sns_topic" "deployment_alerts" {
 resource "aws_codedeploy_deployment_group" "lambda_deployment_group" {
   for_each = var.lambda_functions
 
-  app_name               = aws_codedeploy_application.lambda_app.name
-  deployment_group_name  = "${each.key}-deployment-group"
+  app_name              = aws_codedeploy_app.lambda_app.name
+  deployment_group_name = "${each.key}-deployment-group"
   service_role_arn      = aws_iam_role.codedeploy_service_role.arn
 
   deployment_config_name = var.deployment_config_name
@@ -98,7 +98,7 @@ resource "aws_codedeploy_deployment_group" "lambda_deployment_group" {
 
   alarm_configuration {
     enabled = true
-    alarms  = [
+    alarms = [
       aws_cloudwatch_metric_alarm.lambda_error_rate[each.key].alarm_name,
       aws_cloudwatch_metric_alarm.lambda_duration[each.key].alarm_name
     ]
@@ -114,7 +114,7 @@ resource "aws_codedeploy_deployment_group" "lambda_deployment_group" {
     }
 
     terminate_blue_instances_on_deployment_success {
-      action                         = "TERMINATE"
+      action                           = "TERMINATE"
       termination_wait_time_in_minutes = 5
     }
   }

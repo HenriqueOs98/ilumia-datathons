@@ -23,11 +23,11 @@ resource "aws_api_gateway_rest_api" "main" {
             content = {
               "application/json" = {
                 schema = {
-                  type = "object"
+                  type     = "object"
                   required = ["question"]
                   properties = {
                     question = {
-                      type = "string"
+                      type      = "string"
                       minLength = 1
                       maxLength = 1000
                     }
@@ -44,23 +44,23 @@ resource "aws_api_gateway_rest_api" "main" {
                   schema = {
                     type = "object"
                     properties = {
-                      query_id = { type = "string" }
-                      question = { type = "string" }
-                      answer = { type = "string" }
+                      query_id         = { type = "string" }
+                      question         = { type = "string" }
+                      answer           = { type = "string" }
                       confidence_score = { type = "number" }
                       sources = {
                         type = "array"
                         items = {
                           type = "object"
                           properties = {
-                            document = { type = "string" }
+                            document        = { type = "string" }
                             relevance_score = { type = "number" }
-                            excerpt = { type = "string" }
+                            excerpt         = { type = "string" }
                           }
                         }
                       }
                       processing_time_ms = { type = "integer" }
-                      timestamp = { type = "string" }
+                      timestamp          = { type = "string" }
                     }
                   }
                 }
@@ -85,9 +85,9 @@ resource "aws_api_gateway_rest_api" "main" {
             }
           ]
           "x-amazon-apigateway-integration" = {
-            type = "aws_proxy"
+            type       = "aws_proxy"
             httpMethod = "POST"
-            uri = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/${var.lambda_api_arn}/invocations"
+            uri        = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/${var.lambda_api_arn}/invocations"
             integrationResponses = {
               "200" = {
                 statusCode = "200"
@@ -107,7 +107,7 @@ resource "aws_api_gateway_rest_api" "main" {
                   schema = {
                     type = "object"
                     properties = {
-                      status = { type = "string" }
+                      status    = { type = "string" }
                       timestamp = { type = "string" }
                     }
                   }
@@ -116,9 +116,9 @@ resource "aws_api_gateway_rest_api" "main" {
             }
           }
           "x-amazon-apigateway-integration" = {
-            type = "aws_proxy"
+            type       = "aws_proxy"
             httpMethod = "POST"
-            uri = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/${var.lambda_api_arn}/invocations"
+            uri        = "arn:aws:apigateway:${data.aws_region.current.name}:lambda:path/2015-03-31/functions/${var.lambda_api_arn}/invocations"
           }
         }
       }
@@ -128,7 +128,7 @@ resource "aws_api_gateway_rest_api" "main" {
         api_key = {
           type = "apiKey"
           name = "x-api-key"
-          in = "header"
+          in   = "header"
         }
       }
     }
@@ -159,28 +159,24 @@ resource "aws_api_gateway_stage" "prod" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
   stage_name    = "prod"
 
-  # Enable throttling
-  throttle_settings {
-    rate_limit  = var.throttle_rate_limit
-    burst_limit = var.throttle_burst_limit
-  }
+  # Throttling is configured via usage plans
 
   # Enable logging
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gateway.arn
     format = jsonencode({
-      requestId      = "$context.requestId"
-      ip             = "$context.identity.sourceIp"
-      caller         = "$context.identity.caller"
-      user           = "$context.identity.user"
-      requestTime    = "$context.requestTime"
-      httpMethod     = "$context.httpMethod"
-      resourcePath   = "$context.resourcePath"
-      status         = "$context.status"
-      protocol       = "$context.protocol"
-      responseLength = "$context.responseLength"
-      responseTime   = "$context.responseTime"
-      error          = "$context.error.message"
+      requestId        = "$context.requestId"
+      ip               = "$context.identity.sourceIp"
+      caller           = "$context.identity.caller"
+      user             = "$context.identity.user"
+      requestTime      = "$context.requestTime"
+      httpMethod       = "$context.httpMethod"
+      resourcePath     = "$context.resourcePath"
+      status           = "$context.status"
+      protocol         = "$context.protocol"
+      responseLength   = "$context.responseLength"
+      responseTime     = "$context.responseTime"
+      error            = "$context.error.message"
       integrationError = "$context.integration.error"
     })
   }
@@ -210,8 +206,8 @@ resource "aws_api_gateway_api_key" "main" {
 
 # Usage Plan for rate limiting and quotas
 resource "aws_api_gateway_usage_plan" "basic" {
-  name         = "${var.project_name}-${var.environment}-basic-plan"
-  description  = "Basic usage plan for ONS Data Platform API"
+  name        = "${var.project_name}-${var.environment}-basic-plan"
+  description = "Basic usage plan for ONS Data Platform API"
 
   api_stages {
     api_id = aws_api_gateway_rest_api.main.id
@@ -233,8 +229,8 @@ resource "aws_api_gateway_usage_plan" "basic" {
 
 # Premium Usage Plan for higher limits
 resource "aws_api_gateway_usage_plan" "premium" {
-  name         = "${var.project_name}-${var.environment}-premium-plan"
-  description  = "Premium usage plan for ONS Data Platform API"
+  name        = "${var.project_name}-${var.environment}-premium-plan"
+  description = "Premium usage plan for ONS Data Platform API"
 
   api_stages {
     api_id = aws_api_gateway_rest_api.main.id
@@ -308,9 +304,9 @@ resource "aws_api_gateway_method_settings" "all" {
   method_path = "*/*"
 
   settings {
-    metrics_enabled    = true
-    logging_level      = "INFO"
-    data_trace_enabled = true
+    metrics_enabled        = true
+    logging_level          = "INFO"
+    data_trace_enabled     = true
     throttling_rate_limit  = var.throttle_rate_limit
     throttling_burst_limit = var.throttle_burst_limit
   }

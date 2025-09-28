@@ -22,16 +22,17 @@ resource "aws_iam_role" "lambda_execution_role" {
 resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
   role       = aws_iam_role.lambda_execution_role.name
-}# 
-Timestream Loader Lambda Function
+}
+
+# Timestream Loader Lambda Function
 resource "aws_lambda_function" "timestream_loader" {
-  filename         = data.archive_file.timestream_loader.output_path
-  function_name    = "${var.project_name}-${var.environment}-timestream-loader"
-  role            = var.timestream_lambda_role_arn
-  handler         = "lambda_function.lambda_handler"
-  runtime         = "python3.11"
-  timeout         = 900  # 15 minutes
-  memory_size     = 1024
+  filename      = data.archive_file.timestream_loader.output_path
+  function_name = "${var.project_name}-${var.environment}-timestream-loader"
+  role          = var.timestream_lambda_role_arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 900 # 15 minutes
+  memory_size   = 1024
 
   source_code_hash = data.archive_file.timestream_loader.output_base64sha256
 
@@ -41,8 +42,8 @@ resource "aws_lambda_function" "timestream_loader" {
       GENERATION_TABLE_NAME    = var.generation_table_name
       CONSUMPTION_TABLE_NAME   = var.consumption_table_name
       TRANSMISSION_TABLE_NAME  = var.transmission_table_name
-      MAX_BATCH_SIZE          = "100"
-      MAX_RETRIES             = "3"
+      MAX_BATCH_SIZE           = "100"
+      MAX_RETRIES              = "3"
     }
   }
 
@@ -83,7 +84,7 @@ resource "aws_lambda_layer_version" "pandas_layer" {
   source_code_hash = data.archive_file.pandas_layer.output_base64sha256
 
   compatible_runtimes = ["python3.11"]
-  description        = "Pandas and PyArrow layer for data processing"
+  description         = "Pandas and PyArrow layer for data processing"
 
   depends_on = [null_resource.build_pandas_layer]
 }
@@ -106,40 +107,31 @@ data "archive_file" "pandas_layer" {
   type        = "zip"
   source_dir  = "${path.module}/layer"
   output_path = "${path.module}/pandas_layer.zip"
-  
+
   depends_on = [null_resource.build_pandas_layer]
 }
 
-# Attach layer to Timestream loader
-resource "aws_lambda_function" "timestream_loader_with_layer" {
-  depends_on = [aws_lambda_function.timestream_loader]
-  
-  # This is a workaround to add layers after function creation
-  # In practice, you would add layers directly to the function resource
-  lifecycle {
-    ignore_changes = [layers]
-  }
-}
+# Layer is attached directly to the timestream_loader function above
 
 # RAG Query Processor Lambda Function
 resource "aws_lambda_function" "rag_query_processor" {
-  filename         = data.archive_file.rag_query_processor.output_path
-  function_name    = "${var.project_name}-${var.environment}-rag-query-processor"
-  role            = aws_iam_role.rag_lambda_role.arn
-  handler         = "lambda_function.lambda_handler"
-  runtime         = "python3.11"
-  timeout         = 300  # 5 minutes
-  memory_size     = 1024
+  filename      = data.archive_file.rag_query_processor.output_path
+  function_name = "${var.project_name}-${var.environment}-rag-query-processor"
+  role          = aws_iam_role.rag_lambda_role.arn
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 300 # 5 minutes
+  memory_size   = 1024
 
   source_code_hash = data.archive_file.rag_query_processor.output_base64sha256
 
   environment {
     variables = {
-      KNOWLEDGE_BASE_ID      = var.knowledge_base_id
-      MODEL_ARN             = var.bedrock_model_arn
-      MAX_QUERY_LENGTH      = "1000"
-      MAX_RESULTS           = "5"
-      MIN_CONFIDENCE_SCORE  = "0.7"
+      KNOWLEDGE_BASE_ID    = var.knowledge_base_id
+      MODEL_ARN            = var.bedrock_model_arn
+      MAX_QUERY_LENGTH     = "1000"
+      MAX_RESULTS          = "5"
+      MIN_CONFIDENCE_SCORE = "0.7"
     }
   }
 
@@ -289,7 +281,7 @@ resource "aws_cloudwatch_metric_alarm" "rag_processor_duration" {
   namespace           = "AWS/Lambda"
   period              = "300"
   statistic           = "Average"
-  threshold           = "30000"  # 30 seconds
+  threshold           = "30000" # 30 seconds
   alarm_description   = "This metric monitors RAG processor duration"
   alarm_actions       = [var.sns_topic_arn]
 
@@ -330,7 +322,7 @@ resource "aws_cloudwatch_metric_alarm" "rag_processor_high_latency" {
   namespace           = "ONS/RAGProcessor"
   period              = "300"
   statistic           = "Average"
-  threshold           = "10000"  # 10 seconds
+  threshold           = "10000" # 10 seconds
   alarm_description   = "This metric monitors RAG response time"
   alarm_actions       = [var.sns_topic_arn]
 
@@ -371,7 +363,7 @@ resource "aws_cloudwatch_metric_alarm" "timestream_loader_duration" {
   namespace           = "AWS/Lambda"
   period              = "300"
   statistic           = "Average"
-  threshold           = "600000"  # 10 minutes
+  threshold           = "600000" # 10 minutes
   alarm_description   = "This metric monitors timestream loader duration"
   alarm_actions       = [var.sns_topic_arn]
 

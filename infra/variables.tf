@@ -55,13 +55,13 @@ variable "replication_region" {
 variable "raw_data_retention_days" {
   description = "Retention period for raw data in days"
   type        = number
-  default     = 2555  # 7 years for compliance
+  default     = 2555 # 7 years for compliance
 }
 
 variable "processed_data_retention_days" {
   description = "Retention period for processed data in days"
   type        = number
-  default     = 2555  # 7 years for compliance
+  default     = 2555 # 7 years for compliance
 }
 
 variable "bedrock_model_arn" {

@@ -37,6 +37,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "raw_data" {
     id     = "raw_data_lifecycle"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     transition {
       days          = 30
       storage_class = "STANDARD_IA"
@@ -107,6 +111,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "processed_data" {
   rule {
     id     = "processed_data_lifecycle"
     status = "Enabled"
+
+    filter {
+      prefix = ""
+    }
 
     transition {
       days          = 30
@@ -186,6 +194,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "failed_data" {
     id     = "failed_data_lifecycle"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     transition {
       days          = 7
       storage_class = "STANDARD_IA"
@@ -197,7 +209,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "failed_data" {
     }
 
     expiration {
-      days = 2555  # 7 years retention for compliance
+      days = 2555 # 7 years retention for compliance
     }
 
     noncurrent_version_expiration {
@@ -215,7 +227,7 @@ resource "aws_s3_object" "raw_data_structure" {
     "dataset=consumption/",
     "dataset=transmission/"
   ])
-  
+
   bucket = aws_s3_bucket.raw_data.id
   key    = each.value
   source = "/dev/null"
@@ -233,13 +245,12 @@ resource "aws_s3_object" "processed_data_structure" {
     "dataset=transmission/year=2024/month=02/",
     "dataset=transmission/year=2025/month=01/"
   ])
-  
+
   bucket = aws_s3_bucket.processed_data.id
   key    = each.value
   source = "/dev/null"
 }
-#
- Cross-region replication (optional)
+# Cross-region replication (optional)
 resource "aws_s3_bucket" "processed_data_replica" {
   count    = var.enable_cross_region_replication ? 1 : 0
   provider = aws.replica
@@ -370,6 +381,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
   rule {
     id     = "access_logs_lifecycle"
     status = "Enabled"
+
+    filter {
+      prefix = ""
+    }
 
     expiration {
       days = 90

@@ -41,8 +41,9 @@ variable "api_gateway_id" {
 variable "step_functions_arn" {
   description = "Step Functions state machine ARN for monitoring"
   type        = string
-}variabl
-e "monthly_budget_limit" {
+}
+
+variable "monthly_budget_limit" {
   description = "Monthly budget limit in USD for the ONS Data Platform"
   type        = number
   default     = 500

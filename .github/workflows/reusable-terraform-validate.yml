@@ -1,0 +1,125 @@
+name: Reusable Terraform Validate
+
+on:
+  workflow_call:
+    outputs:
+      modules-changed:
+        description: "Modules changed"
+        value: ${{ jobs.detect-infrastructure-changes.outputs.modules-changed }}
+      main-config-changed:
+        description: "Main config changed"
+        value: ${{ jobs.detect-infrastructure-changes.outputs.main-config-changed }}
+      api-gateway-changed:
+        description: "API Gateway changed"
+        value: ${{ jobs.detect-infrastructure-changes.outputs.api-gateway-changed }}
+      eventbridge-changed:
+        description: "EventBridge changed"
+        value: ${{ jobs.detect-infrastructure-changes.outputs.eventbridge-changed }}
+      knowledge-base-changed:
+        description: "Knowledge Base changed"
+        value: ${{ jobs.detect-infrastructure-changes.outputs.knowledge-base-changed }}
+      lambda-changed:
+        description: "Lambda changed"
+        value: ${{ jobs.detect-infrastructure-changes.outputs.lambda-changed }}
+      monitoring-changed:
+        description: "Monitoring changed"
+        value: ${{ jobs.detect-infrastructure-changes.outputs.monitoring-changed }}
+      s3-changed:
+        description: "S3 changed"
+        value: ${{ jobs.detect-infrastructure-changes.outputs.s3-changed }}
+      step-functions-changed:
+        description: "Step Functions changed"
+        value: ${{ jobs.detect-infrastructure-changes.outputs.step-functions-changed }}
+      timestream-changed:
+        description: "Timestream changed"
+        value: ${{ jobs.detect-infrastructure-changes.outputs.timestream-changed }}
+
+jobs:
+  detect-infrastructure-changes:
+    name: Detect Infrastructure Changes
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.changes.outputs.modules }}
+      main-config: ${{ steps.changes.outputs.main-config }}
+      api-gateway: ${{ steps.changes.outputs.api-gateway }}
+      eventbridge: ${{ steps.changes.outputs.eventbridge }}
+      knowledge-base: ${{ steps.changes.outputs.knowledge-base }}
+      lambda: ${{ steps.changes.outputs.lambda }}
+      monitoring: ${{ steps.changes.outputs.monitoring }}
+      s3: ${{ steps.changes.outputs.s3 }}
+      step-functions: ${{ steps.changes.outputs.step-functions }}
+      timestream: ${{ steps.changes.outputs.timestream }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Detect infrastructure changes
+      uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          modules:
+            - 'infra/modules/**'
+          main-config:
+            - 'infra/*.tf'
+            - 'infra/variables.tf'
+            - 'infra/outputs.tf'
+          api-gateway:
+            - 'infra/modules/api_gateway/**'
+          eventbridge:
+            - 'infra/modules/eventbridge/**'
+          knowledge-base:
+            - 'infra/modules/knowledge_base/**'
+          lambda:
+            - 'infra/modules/lambda/**'
+          monitoring:
+            - 'infra/modules/monitoring/**'
+          s3:
+            - 'infra/modules/s3/**'
+          step-functions:
+            - 'infra/modules/step_functions/**'
+          timestream:
+            - 'infra/modules/timestream/**'
+
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    needs: detect-infrastructure-changes
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+    - name: Terraform Format Check
+      run: |
+        terraform fmt -check -recursive
+        if [ $? -ne 0 ]; then
+          echo "::error::Terraform files are not properly formatted. Run 'terraform fmt -recursive' to fix."
+          exit 1
+        fi
+      working-directory: infra
+    - name: Terraform Init (syntax check)
+      run: terraform init -backend=false
+      working-directory: infra
+    - name: Terraform Validate
+      run: terraform validate
+      working-directory: infra
+    - name: Validate module dependencies
+      run: |
+        echo "Validating module structure..."
+        for module_dir in infra/modules/*/; do
+          module_name=$(basename "$module_dir")
+          echo "Checking module: $module_name"
+          if [ ! -f "$module_dir/main.tf" ]; then
+            echo "::error::Module $module_name is missing main.tf"
+            exit 1
+          fi
+          if [ ! -f "$module_dir/variables.tf" ]; then
+            echo "::warning::Module $module_name is missing variables.tf"
+          fi
+          if [ ! -f "$module_dir/outputs.tf" ]; then
+            echo "::warning::Module $module_name is missing outputs.tf"
+          fi
+        done
+        echo "Module structure validation completed."

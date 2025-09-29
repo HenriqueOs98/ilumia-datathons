@@ -42,7 +42,7 @@ resource "aws_appconfig_hosted_configuration_version" "influxdb_migration_flags"
         enabled = true
       },
       influxdb_traffic_percentage = {
-        enabled = true,
+        enabled    = true,
         percentage = 0
       }
     }

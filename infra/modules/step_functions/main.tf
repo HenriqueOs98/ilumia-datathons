@@ -71,7 +71,7 @@ resource "aws_iam_role_policy" "step_functions_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ],
-        "Resource": "arn:aws:logs:*:*:*"
+        "Resource" : "arn:aws:logs:*:*:*"
       },
       {
         Effect = "Allow",

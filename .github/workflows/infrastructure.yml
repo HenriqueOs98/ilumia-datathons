@@ -427,10 +427,9 @@ jobs:
           -backend-config="dynamodb_table=ons-data-platform-terraform-locks-prod"
       working-directory: infra
 
-    - name: Inspect Terraform State
-      run: terraform state pull
+    - name: Terraform Destroy
+      run: terraform destroy -auto-approve
       working-directory: infra
-      continue-on-error: true
     
     - name: Terraform Plan
       id: plan

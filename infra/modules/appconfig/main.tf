@@ -133,14 +133,8 @@ resource "aws_iam_role_policy" "appconfig_cloudwatch_policy" {
   })
 }
 
-# Initial Feature Flags Configuration
-resource "aws_appconfig_hosted_configuration_version" "feature_flags_initial" {
-  application_id           = aws_appconfig_application.main.id
-  configuration_profile_id = aws_appconfig_configuration_profile.feature_flags.configuration_profile_id
-  description              = "Initial feature flags configuration"
-  content_type             = "application/json"
-
-  content = jsonencode({
+locals {
+  feature_flags_content = jsonencode({
     flags = {
       enable_new_api_endpoint = {
         name    = "enable_new_api_endpoint"
@@ -198,16 +192,8 @@ resource "aws_appconfig_hosted_configuration_version" "feature_flags_initial" {
     }
     version = "1"
   })
-}
 
-# Initial Application Settings Configuration
-resource "aws_appconfig_hosted_configuration_version" "app_settings_initial" {
-  application_id           = aws_appconfig_application.main.id
-  configuration_profile_id = aws_appconfig_configuration_profile.app_settings.configuration_profile_id
-  description              = "Initial application settings"
-  content_type             = "application/json"
-
-  content = jsonencode({
+  app_settings_content = jsonencode({
     deployment = {
       canary_percentage  = 10
       rollback_threshold = 5
@@ -221,4 +207,22 @@ resource "aws_appconfig_hosted_configuration_version" "app_settings_initial" {
       metrics_enabled = true
     }
   })
+}
+
+# Initial Feature Flags Configuration
+resource "aws_appconfig_hosted_configuration_version" "feature_flags_initial" {
+  application_id           = aws_appconfig_application.main.id
+  configuration_profile_id = aws_appconfig_configuration_profile.feature_flags.configuration_profile_id
+  description              = "Initial feature flags configuration hash ${sha1(local.feature_flags_content)}"
+  content_type             = "application/json"
+  content                  = local.feature_flags_content
+}
+
+# Initial Application Settings Configuration
+resource "aws_appconfig_hosted_configuration_version" "app_settings_initial" {
+  application_id           = aws_appconfig_application.main.id
+  configuration_profile_id = aws_appconfig_configuration_profile.app_settings.configuration_profile_id
+  description              = "Initial application settings hash ${sha1(local.app_settings_content)}"
+  content_type             = "application/json"
+  content                  = local.app_settings_content
 }

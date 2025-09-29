@@ -203,7 +203,7 @@ resource "aws_bedrockagent_knowledge_base" "ons_knowledge_base" {
   storage_configuration {
     opensearch_serverless_configuration {
       collection_arn    = aws_opensearchserverless_collection.knowledge_base.arn
-      vector_index_name = "ons-energy-index"
+      vector_index_name = "${var.project_name}-${var.environment}-kb-energy-index"
       field_mapping {
         vector_field   = "vector"
         text_field     = "text"

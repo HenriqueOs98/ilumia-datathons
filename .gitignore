@@ -21,3 +21,6 @@ override.tf.json
 
 # Virtual environments
 .venv
+
+#credentials
+aws_credentials

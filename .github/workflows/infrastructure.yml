@@ -186,8 +186,6 @@ jobs:
   terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
-    # SECURITY DEPENDENCY TEMPORARILY DISABLED
-    # needs: [detect-infrastructure-changes, terraform-validate, security-scan]
     needs: [detect-infrastructure-changes, terraform-validate]
     if: github.event_name == 'pull_request'
     

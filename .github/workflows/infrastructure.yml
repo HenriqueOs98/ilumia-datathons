@@ -426,6 +426,11 @@ jobs:
           -backend-config="region=${{ env.AWS_REGION }}" \
           -backend-config="dynamodb_table=ons-data-platform-terraform-locks-prod"
       working-directory: infra
+
+    - name: Inspect Terraform State
+      run: terraform state pull
+      working-directory: infra
+      continue-on-error: true
     
     - name: Terraform Plan
       id: plan

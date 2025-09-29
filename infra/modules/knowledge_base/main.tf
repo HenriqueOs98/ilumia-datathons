@@ -220,7 +220,6 @@ resource "aws_bedrockagent_knowledge_base" "ons_knowledge_base" {
   }
 
   depends_on = [
-    time_sleep.wait_for_collection,
     aws_opensearchserverless_collection.knowledge_base,
     aws_iam_role_policy.knowledge_base_s3_policy,
     aws_iam_role_policy.knowledge_base_opensearch_policy,

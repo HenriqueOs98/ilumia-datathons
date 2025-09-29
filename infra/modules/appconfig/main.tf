@@ -216,6 +216,10 @@ resource "aws_appconfig_hosted_configuration_version" "feature_flags_initial" {
   description              = "Initial feature flags configuration hash ${sha1(local.feature_flags_content)}"
   content_type             = "application/json"
   content                  = local.feature_flags_content
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # Initial Application Settings Configuration

@@ -70,8 +70,22 @@ resource "aws_iam_role_policy" "step_functions_policy" {
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents"
+        ],
+        "Resource": "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "events:PutRule",
+          "events:PutTargets",
+          "events:DeleteRule",
+          "events:DescribeRule"
+        ],
+        Resource = [
+          "arn:aws:events:*:*:rule/StepFunctionsGetEventsForBatchJobsRule",
+          "arn:aws:events:*:*:rule/StepFunctionsGetEventsForECSTaskRule",
+          "arn:aws:events:*:*:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule"
         ]
-        Resource = "arn:aws:logs:*:*:*"
       }
     ]
   })

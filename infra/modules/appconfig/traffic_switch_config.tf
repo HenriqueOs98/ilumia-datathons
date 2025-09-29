@@ -9,96 +9,43 @@ resource "aws_appconfig_hosted_configuration_version" "influxdb_migration_flags"
   content_type             = "application/json"
 
   content = jsonencode({
+    version = "1",
     flags = {
       use_influxdb_for_data_ingestion = {
-        name    = "use_influxdb_for_data_ingestion"
-        enabled = true
-        variants = {
-          on = {
-            name  = "on"
-            value = true
-          }
-          off = {
-            name  = "off"
-            value = false
-          }
-        }
-      }
+        name = "use_influxdb_for_data_ingestion"
+      },
       use_influxdb_for_api_queries = {
-        name    = "use_influxdb_for_api_queries"
-        enabled = false
-        variants = {
-          on = {
-            name  = "on"
-            value = true
-          }
-          off = {
-            name  = "off"
-            value = false
-          }
-        }
-      }
+        name = "use_influxdb_for_api_queries"
+      },
       enable_query_performance_monitoring = {
-        name    = "enable_query_performance_monitoring"
-        enabled = true
-        variants = {
-          on = {
-            name  = "on"
-            value = true
-          }
-          off = {
-            name  = "off"
-            value = false
-          }
-        }
-      }
+        name = "enable_query_performance_monitoring"
+      },
       influxdb_traffic_percentage = {
-        name    = "influxdb_traffic_percentage"
-        enabled = true
-        variants = {
-          "0" = {
-            name  = "0"
-            value = 0
-          }
-          "10" = {
-            name  = "10"
-            value = 10
-          }
-          "25" = {
-            name  = "25"
-            value = 25
-          }
-          "50" = {
-            name  = "50"
-            value = 50
-          }
-          "75" = {
-            name  = "75"
-            value = 75
-          }
-          "100" = {
-            name  = "100"
-            value = 100
+        name = "influxdb_traffic_percentage",
+        attributes = {
+          percentage = {
+            constraints = {
+              type = "number"
+            }
           }
         }
       }
-    }
+    },
     values = {
       use_influxdb_for_data_ingestion = {
         enabled = true
-      }
+      },
       use_influxdb_for_api_queries = {
         enabled = false
-      }
+      },
       enable_query_performance_monitoring = {
         enabled = true
-      }
+      },
       influxdb_traffic_percentage = {
-        enabled = true
-        variant = "0"
+        enabled = true,
+        percentage = 0
       }
     }
-    version = "1"
   })
 
   lifecycle {

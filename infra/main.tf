@@ -9,6 +9,14 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.1"
     }
+    opensearch = {
+      source  = "opensearch-project/opensearch"
+      version = "~> 2.2.0"
+    }
+    opensearch = {
+      source  = "opensearch-project/opensearch"
+      version = "~> 2.2.0"
+    }
   }
 }
 

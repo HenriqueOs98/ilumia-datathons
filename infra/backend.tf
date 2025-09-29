@@ -11,11 +11,11 @@
 # S3 backend configuration (commented out for local testing)
 terraform {
   backend "s3" {
-    bucket         = "ons-data-platform-terraform-state"
+    bucket         = "ons-data-platform-terraform-state-dev"
     key            = "terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
-    dynamodb_table = "ons-data-platform-terraform-locks"
+    use_lockfile   = true
   }
 }
 

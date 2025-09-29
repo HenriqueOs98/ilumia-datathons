@@ -104,6 +104,12 @@ resource "aws_codedeploy_deployment_group" "lambda_deployment_group" {
     ]
   }
 
+  deployment_style {
+    deployment_option = "WITH_TRAFFIC_CONTROL"
+    deployment_type   = "BLUE_GREEN"
+  }
+
+
 
   tags = var.tags
 }

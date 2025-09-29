@@ -55,8 +55,7 @@ jobs:
         terraform init \
           -backend-config="bucket=ons-data-platform-terraform-state-${{ matrix.environment }}" \
           -backend-config="key=terraform.tfstate" \
-          -backend-config="region=${{ env.AWS_REGION }}" \
-          -backend-config="dynamodb_table=ons-data-platform-terraform-locks-${{ matrix.environment }}"
+          -backend-config="region=${{ env.AWS_REGION }}"
       working-directory: infra
     
     - name: Terraform Plan
@@ -187,8 +186,7 @@ jobs:
         terraform init \
           -backend-config="bucket=ons-data-platform-terraform-state-prod" \
           -backend-config="key=terraform.tfstate" \
-          -backend-config="region=${{ env.AWS_REGION }}" \
-          -backend-config="dynamodb_table=ons-data-platform-terraform-locks-prod"
+          -backend-config="region=${{ env.AWS_REGION }}"
       working-directory: infra
     - name: Terraform Destroy
       if: env.TERRAFORM_DESTROY_ENABLED == 'true'
@@ -309,8 +307,7 @@ jobs:
         terraform init \
           -backend-config="bucket=ons-data-platform-terraform-state-prod" \
           -backend-config="key=terraform.tfstate" \
-          -backend-config="region=${{ env.AWS_REGION }}" \
-          -backend-config="dynamodb_table=ons-data-platform-terraform-locks-prod"
+          -backend-config="region=${{ env.AWS_REGION }}"
         
         terraform output -json > deployment-outputs.json
         

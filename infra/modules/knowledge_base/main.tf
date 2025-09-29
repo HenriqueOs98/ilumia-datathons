@@ -217,7 +217,8 @@ resource "aws_bedrockagent_knowledge_base" "ons_knowledge_base" {
     aws_opensearchserverless_collection.knowledge_base,
     aws_iam_role_policy.knowledge_base_s3_policy,
     aws_iam_role_policy.knowledge_base_opensearch_policy,
-    aws_iam_role_policy.knowledge_base_bedrock_policy
+    aws_iam_role_policy.knowledge_base_bedrock_policy,
+    aws_opensearchserverless_access_policy.knowledge_base_data_access
   ]
 
   tags = {

@@ -203,6 +203,59 @@ resource "time_sleep" "wait_for_collection_ready" {
   ]
 }
 
+# Create OpenSearch index for Bedrock Knowledge Base
+resource "null_resource" "create_opensearch_index" {
+  triggers = {
+    collection_endpoint = aws_opensearchserverless_collection.knowledge_base.collection_endpoint
+    index_name          = "bedrock-knowledge-base-index"
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      curl -XPUT \
+        --aws-sigv4 "aws:amz:${data.aws_region.current.name}:aoss" \
+        --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+        "${aws_opensearchserverless_collection.knowledge_base.collection_endpoint}/bedrock-knowledge-base-index" \
+        -H 'Content-Type: application/json' \
+        -d '{
+          "settings": {
+            "index": {
+              "knn": true,
+              "knn.algo_param.ef_search": 512
+            }
+          },
+          "mappings": {
+            "properties": {
+              "vector": {
+                "type": "knn_vector",
+                "dimension": 1536,
+                "method": {
+                  "name": "hnsw",
+                  "engine": "faiss",
+                  "parameters": {
+                    "ef_construction": 512,
+                    "m": 16
+                  }
+                }
+              },
+              "text": {
+                "type": "text"
+              },
+              "metadata": {
+                "type": "text"
+              }
+            }
+          }
+        }' || true
+    EOT
+  }
+
+  depends_on = [
+    time_sleep.wait_for_collection_ready,
+    aws_opensearchserverless_access_policy.knowledge_base_data_access
+  ]
+}
+
 # Bedrock Knowledge Base
 resource "aws_bedrockagent_knowledge_base" "ons_knowledge_base" {
   name     = "${var.project_name}-${var.environment}-knowledge-base"
@@ -236,7 +289,8 @@ resource "aws_bedrockagent_knowledge_base" "ons_knowledge_base" {
     aws_iam_role_policy.knowledge_base_opensearch_policy,
     aws_iam_role_policy.knowledge_base_bedrock_policy,
     aws_opensearchserverless_access_policy.knowledge_base_data_access,
-    time_sleep.wait_for_collection_ready
+    time_sleep.wait_for_collection_ready,
+    null_resource.create_opensearch_index
   ]
 
   tags = {

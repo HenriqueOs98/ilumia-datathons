@@ -209,11 +209,10 @@ locals {
   })
 }
 
-# Use timestamp and content hash for unique versions
+# Use content hash only for unique versions
 resource "random_uuid" "feature_flags_version" {
   keepers = {
-    content   = local.feature_flags_content
-    timestamp = timestamp()
+    content = local.feature_flags_content
   }
 }
 
@@ -227,14 +226,14 @@ resource "aws_appconfig_hosted_configuration_version" "feature_flags_initial" {
 
   lifecycle {
     create_before_destroy = true
+    ignore_changes        = [description]
   }
 }
 
-# Use timestamp and content hash for unique versions
+# Use content hash only for unique versions
 resource "random_uuid" "app_settings_version" {
   keepers = {
-    content   = local.app_settings_content
-    timestamp = timestamp()
+    content = local.app_settings_content
   }
 }
 
@@ -248,5 +247,6 @@ resource "aws_appconfig_hosted_configuration_version" "app_settings_initial" {
 
   lifecycle {
     create_before_destroy = true
+    ignore_changes        = [description]
   }
 }

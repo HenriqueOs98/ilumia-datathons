@@ -209,11 +209,19 @@ locals {
   })
 }
 
+# Use timestamp and content hash for unique versions
+resource "random_uuid" "feature_flags_version" {
+  keepers = {
+    content   = local.feature_flags_content
+    timestamp = timestamp()
+  }
+}
+
 # Initial Feature Flags Configuration
 resource "aws_appconfig_hosted_configuration_version" "feature_flags_initial" {
   application_id           = aws_appconfig_application.main.id
   configuration_profile_id = aws_appconfig_configuration_profile.feature_flags.configuration_profile_id
-  description              = "Initial feature flags configuration hash ${sha1(local.feature_flags_content)}"
+  description              = "Feature flags ${substr(random_uuid.feature_flags_version.result, 0, 8)}"
   content_type             = "application/json"
   content                  = local.feature_flags_content
 
@@ -222,11 +230,23 @@ resource "aws_appconfig_hosted_configuration_version" "feature_flags_initial" {
   }
 }
 
+# Use timestamp and content hash for unique versions
+resource "random_uuid" "app_settings_version" {
+  keepers = {
+    content   = local.app_settings_content
+    timestamp = timestamp()
+  }
+}
+
 # Initial Application Settings Configuration
 resource "aws_appconfig_hosted_configuration_version" "app_settings_initial" {
   application_id           = aws_appconfig_application.main.id
   configuration_profile_id = aws_appconfig_configuration_profile.app_settings.configuration_profile_id
-  description              = "Initial application settings hash ${sha1(local.app_settings_content)}"
+  description              = "App settings ${substr(random_uuid.app_settings_version.result, 0, 8)}"
   content_type             = "application/json"
   content                  = local.app_settings_content
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }

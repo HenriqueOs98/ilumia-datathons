@@ -192,6 +192,17 @@ resource "time_sleep" "wait_for_collection" {
   depends_on = [aws_opensearchserverless_collection.knowledge_base]
 }
 
+# Extended wait for collection to be fully ready
+resource "time_sleep" "wait_for_collection_ready" {
+  create_duration = "120s"
+
+  depends_on = [
+    aws_opensearchserverless_collection.knowledge_base,
+    time_sleep.wait_for_collection,
+    aws_opensearchserverless_access_policy.knowledge_base_data_access
+  ]
+}
+
 # Bedrock Knowledge Base
 resource "aws_bedrockagent_knowledge_base" "ons_knowledge_base" {
   name     = "${var.project_name}-${var.environment}-knowledge-base"
@@ -209,7 +220,7 @@ resource "aws_bedrockagent_knowledge_base" "ons_knowledge_base" {
   storage_configuration {
     opensearch_serverless_configuration {
       collection_arn    = aws_opensearchserverless_collection.knowledge_base.arn
-      vector_index_name = "${var.project_name}-${var.environment}-kb-energy-index"
+      vector_index_name = "bedrock-knowledge-base-index"
       field_mapping {
         vector_field   = "vector"
         text_field     = "text"
@@ -224,7 +235,8 @@ resource "aws_bedrockagent_knowledge_base" "ons_knowledge_base" {
     aws_iam_role_policy.knowledge_base_s3_policy,
     aws_iam_role_policy.knowledge_base_opensearch_policy,
     aws_iam_role_policy.knowledge_base_bedrock_policy,
-    aws_opensearchserverless_access_policy.knowledge_base_data_access
+    aws_opensearchserverless_access_policy.knowledge_base_data_access,
+    time_sleep.wait_for_collection_ready
   ]
 
   tags = {

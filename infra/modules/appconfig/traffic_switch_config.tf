@@ -1,14 +1,9 @@
 # Traffic Switching Configuration for InfluxDB Migration
 # This configuration manages the gradual rollout from Timestream to InfluxDB
 
-# Feature Flag Configuration for InfluxDB Migration
-resource "aws_appconfig_hosted_configuration_version" "influxdb_migration_flags" {
-  application_id           = aws_appconfig_application.main.id
-  configuration_profile_id = aws_appconfig_configuration_profile.feature_flags.configuration_profile_id
-  description              = "InfluxDB migration traffic switching flags"
-  content_type             = "application/json"
-
-  content = jsonencode({
+# Local content for migration flags
+locals {
+  migration_flags_content = jsonencode({
     version = "1",
     flags = {
       use_influxdb_for_data_ingestion = {
@@ -47,20 +42,32 @@ resource "aws_appconfig_hosted_configuration_version" "influxdb_migration_flags"
       }
     }
   })
+}
+
+# Use timestamp and content hash for unique versions
+resource "random_uuid" "migration_flags_version" {
+  keepers = {
+    content   = local.migration_flags_content
+    timestamp = timestamp()
+  }
+}
+
+# Feature Flag Configuration for InfluxDB Migration
+resource "aws_appconfig_hosted_configuration_version" "influxdb_migration_flags" {
+  application_id           = aws_appconfig_application.main.id
+  configuration_profile_id = aws_appconfig_configuration_profile.feature_flags.configuration_profile_id
+  description              = "Migration flags ${substr(random_uuid.migration_flags_version.result, 0, 8)}"
+  content_type             = "application/json"
+  content                  = local.migration_flags_content
 
   lifecycle {
     create_before_destroy = true
   }
 }
 
-# Application Settings for Traffic Switching
-resource "aws_appconfig_hosted_configuration_version" "traffic_switch_settings" {
-  application_id           = aws_appconfig_application.main.id
-  configuration_profile_id = aws_appconfig_configuration_profile.app_settings.configuration_profile_id
-  description              = "Traffic switching settings for InfluxDB migration"
-  content_type             = "application/json"
-
-  content = jsonencode({
+# Local content for traffic switch settings
+locals {
+  traffic_switch_content = jsonencode({
     traffic_switching = {
       canary_percentage          = 10
       rollback_threshold_errors  = 5
@@ -88,6 +95,23 @@ resource "aws_appconfig_hosted_configuration_version" "traffic_switch_settings" 
       sample_rate             = 0.1
     }
   })
+}
+
+# Use timestamp and content hash for unique versions
+resource "random_uuid" "traffic_switch_version" {
+  keepers = {
+    content   = local.traffic_switch_content
+    timestamp = timestamp()
+  }
+}
+
+# Application Settings for Traffic Switching
+resource "aws_appconfig_hosted_configuration_version" "traffic_switch_settings" {
+  application_id           = aws_appconfig_application.main.id
+  configuration_profile_id = aws_appconfig_configuration_profile.app_settings.configuration_profile_id
+  description              = "Traffic switch ${substr(random_uuid.traffic_switch_version.result, 0, 8)}"
+  content_type             = "application/json"
+  content                  = local.traffic_switch_content
 
   lifecycle {
     create_before_destroy = true
